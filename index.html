@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="두꺼비 POS">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#2f6b3f">
+<link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAIAAACyr5FlAAAFWUlEQVR4nO3dPZLbRhRFYcjlLSj2ErQEl0OXQ2feggPHShQ4cexNKFOoUug1aAmKZxMOuoyCSVxMA0S/dx94vkyjqWHP42GDBH/mzbvff5yANd9lLwC+iAMScUAiDkjEAYk4IBEHJOKARByQiAMScUAiDkjEAYk4IBEHJOKARByQiAMScUAiDkjEAYk4IBEHJOKARByQiAMScUAiDkjEAYk4IBEHJOKARByQiAPS99kLOOjnX9+p//ry6WvkSvqVW/ObWp8JtjHfeyYTr7jmpkwcu0a8lDjuimteKhDH4REvBY+74prvud8hPWXKJ/6cyMuKXPMq6zjOnU7MrCuuWfGNY8RcRs+64po3mMYxbiL85H6OcXD7jv/5q+zi4J5B7qUsVT1DOk3TXz/9ff/F9//8Eb+SfrXW7HWeo/PGsTripc5xn3IioeKaO9kdVl716pQ7vydSxTVPVnH03AT7J9jznY8fxSuuuZ9RHK/ae9tyuC1WXPOsTBzHppY764prXnJ5tHJ4t3z7w9vlP1++vey93MN38SqueZcaO4e6Md1MefUrWTfEimu+USOOVfcz3f66g1prrhrH9jQ9Z11uzVXjQADigEQckIgDUo047p+U2j43sPzfrOc8K675hstJsC+fvu49p/Ty7WX1Hv6Bc0o933Z/3ilrzWFPzBo9Zf/qoFdPDW2fbUy/CY5YM3Gs23XqML2M5vQ1h8VhdJ+j53fuv75NypjOXjMv9tnSM0GfMpqKa56sDitN/128Wq/HbB5cc/AbJF0erRxg3sGqWmu2O6ykv3vYVvxk7OKY6GNNykwc45jo4/+ypmEax0Qf/0mcg+kd0vSPpjCRewtx3Dkoo0nfO+12DsqYDLJojOIgCzcuhxXKWDKZhkUcJrOw4jCT/DgcpuApfTLJcaT//uae99MEKaPHM36aIGX0e65PE6SMvZ7l0wQp45j4ueU/WoGt6DjYNh4RPL3QOCjjcXxgHCzExcG2cZawSQbFQRnnipknhxVIEXGwbYwQMFV2DkjEAWl4HBxTxhk9W3YOSMQBaWwcHFNGGzphdg5IxAGJOCANjIM7HDHGzZmdAxJxQCIOSMQBiTggEQck4oBEHJCIAxJxQBoYh8lH4l3euDmzc0AiDkjEAWlsHNztGG3ohNk5IJWP4+OHzx8/fM5exQrbhfWL+AOAg16qdDP63/78ZcSlHLNc27iFjT5ql985Zj4305uV+Cxsr8Jx3N8i03fy1QVYbWm7RMQxbvdbnXtWH6uXW/eYMpXeORrVR2Qi6uLq7hlN3F+kHvpOhY0Uhl5DWZcbcwIp9M+VZ/UxO+UKC7sgJezUotGf8XpQuz62r7ljj353HaGqH0qWQneOKeRtcIkPWALKiHxGIjqOKfBtkmGVhO0Wwc9VXeewcq/nQHPKRVxVws4xJb3H+sRKUpqIf4o7J47J4D34te5mprz4IS2OyaCPKrJeFpN5hpSXAvVInFLy6XP62JY7n/znVuhDSZ9MfhyTwRQMOczEIo7JYxY+TKZhdBKsTeTJH8KYZNG47Bwzq+kEc/vd7eKY/GYUw/C3NjqsLD3VIcYwi8Y0jubyidhm0TgeVm6YT/Aw/9/LeueYXWwL8c+iqRFHc4FEqmTRVIqjmedbqJJaTczqxTErsZEUzaIpHEfjuZGUbmJWPo7Z8vpICeUaQSxdJ46lsFCuF8TSNeNYWr3+DhRz7Q5WXT+OVU94TR9Q4AwpshAHJOKARByQiAMScUAiDkjEAYk4IBEHJOKARByQiAMScUAiDkjEAYk4IBEHJOKARByQiAMScUAiDkjEAYk4IBEHJOKARByQ/gUtJuOwMeFyxwAAAABJRU5ErkJggg==">
+<title>Toad House POS</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: table floor grid → order screen (menu left, check right). Print area renders 80mm thermal tickets. */
+:root{
+  --bg:#f3f1ec; --panel:#ffffff; --ink:#1f2420; --muted:#6b716a; --line:#dcd8cf;
+  --toad:#2f6b3f; --toad-ink:#ffffff; --busy:#c8792a; --sent:#2f6b3f; --danger:#b23a2e;
+  --sans:"Noto Sans KR",system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#161a17; --panel:#20251f; --ink:#ecefe9; --muted:#9aa196; --line:#343b33;
+  --toad:#4e9a62; --toad-ink:#0e140f; --busy:#e0954a; --sent:#6fbf83; --danger:#e0685b; color-scheme:dark}}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{overscroll-behavior:none;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;-webkit-tap-highlight-color:transparent}
+button{touch-action:manipulation;-webkit-user-select:none;user-select:none;font:inherit;color:inherit;cursor:pointer;border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:10px 14px}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--toad);outline-offset:2px}
+button.primary{background:var(--toad);color:var(--toad-ink);border-color:var(--toad);font-weight:700}
+button.warn{background:var(--busy);color:#1b1206;border-color:var(--busy);font-weight:700}
+button.ghost{background:transparent}
+button.danger{color:var(--danger);border-color:var(--danger);background:transparent}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+header.top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:calc(12px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 12px max(16px,env(safe-area-inset-left,0px));border-bottom:1px solid var(--line);background:var(--panel)}
+header.top h1{margin:0;font-size:20px;font-weight:900;letter-spacing:-.01em;display:flex;align-items:center;gap:8px}
+header.top h1 small{font-weight:500;color:var(--muted);font-size:13px}
+.spacer{flex:1}
+.clock{color:var(--muted)}
+
+/* floor */
+#floor{padding:16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px;max-width:1200px;margin:0 auto}
+.tbl{min-height:110px;text-align:left;display:flex;flex-direction:column;gap:4px;padding:12px;border-width:2px}
+.tbl .name{font-size:20px;font-weight:900}
+.tbl .meta{font-size:13px;color:var(--muted)}
+.tbl.busy{border-color:var(--busy)}
+.tbl.busy .name{color:var(--busy)}
+.tbl .amt{margin-top:auto;font-weight:600}
+.sect{grid-column:1/-1;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:4px}
+
+/* order screen */
+#order{display:grid;grid-template-columns:1fr 380px;height:calc(100dvh - 61px - env(safe-area-inset-top,0px))}
+.acts{padding-bottom:calc(16px + env(safe-area-inset-bottom,0px))!important}
+@media (max-width:1100px){#order{grid-template-columns:1fr 330px}}
+#menuSide{display:flex;flex-direction:column;min-width:0;border-right:1px solid var(--line)}
+#cats{display:flex;gap:8px;padding:12px 16px;overflow-x:auto;border-bottom:1px solid var(--line)}
+#cats button{white-space:nowrap}
+#cats button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+#items{padding:16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;overflow-y:auto;align-content:start}
+.mi{text-align:left;min-height:92px;display:flex;flex-direction:column;gap:6px}
+.mi b{font-size:16px}
+.mi span{color:var(--muted);font-size:13px}
+#check{display:flex;flex-direction:column;background:var(--panel);min-width:0}
+#check .hd{padding:14px 16px;border-bottom:1px solid var(--line);display:flex;align-items:baseline;gap:10px}
+#check .hd h2{margin:0;font-size:22px;font-weight:900}
+#lines{flex:1;overflow-y:auto;padding:8px 0}
+.ln{display:grid;grid-template-columns:1fr auto;gap:4px 10px;padding:10px 16px;border-bottom:1px dashed var(--line)}
+.ln .nm{font-weight:700;min-width:0}
+.ln .pr{text-align:right}
+.ln .ctl{grid-column:1/-1;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.ln .ctl button{padding:4px 12px;border-radius:8px}
+.pill{font-size:11px;padding:2px 8px;border-radius:99px;border:1px solid currentColor;font-weight:700;letter-spacing:.03em}
+.pill.new{color:var(--busy)} .pill.sent{color:var(--sent)}
+.note{grid-column:1/-1;color:var(--busy);font-size:13px}
+.empty{padding:40px 16px;color:var(--muted);text-align:center}
+.tot{padding:12px 16px;border-top:1px solid var(--line);display:grid;grid-template-columns:1fr auto;gap:4px}
+.tot .big{font-size:22px;font-weight:900}
+.acts{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 16px 16px}
+.acts .wide{grid-column:1/-1;padding:14px;font-size:17px}
+
+/* modal */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:16px;z-index:20}
+.box{background:var(--panel);border-radius:14px;max-width:640px;width:100%;max-height:90vh;overflow:auto;padding:20px;display:flex;flex-direction:column;gap:12px}
+.box h3{margin:0;font-size:19px}
+.box textarea,.box input{width:100%;font:inherit;font-family:var(--mono);font-size:16px;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
+.box textarea{min-height:300px}
+.box .row{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.hint{color:var(--muted);font-size:13px;line-height:1.5}
+table.rep{width:100%;border-collapse:collapse}
+table.rep td{padding:6px 4px;border-bottom:1px solid var(--line)}
+table.rep td:last-child{text-align:right}
+
+@media (max-width:700px){
+  #order{grid-template-columns:1fr;height:auto}
+  #menuSide{border-right:0}
+  #items{max-height:none}
+}
+
+/* print: only the ticket, sized for 80mm thermal paper */
+#printArea{display:none}
+@media print{
+  @page{size:80mm auto;margin:3mm}
+  body{background:#fff;color:#000}
+  body > *:not(#printArea){display:none!important}
+  #printArea{display:block;width:72mm;font-family:var(--mono);font-size:12px;color:#000}
+  .tk h1{font-family:var(--sans);font-size:20px;margin:0;text-align:center}
+  .tk .c{text-align:center}
+  .tk hr{border:0;border-top:1px dashed #000;margin:6px 0}
+  .tk .r{display:flex;justify-content:space-between;gap:6px}
+  .tk .kit{font-family:var(--sans);font-size:20px;font-weight:900;margin:6px 0}
+  .tk .kn{font-family:var(--sans);font-size:15px;margin:-4px 0 6px 28px}
+  .tk .big{font-size:26px;font-weight:900;text-align:center;font-family:var(--sans)}
+  .tk .b{font-weight:700;font-size:14px}
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <h1>🐸 두꺼비집 <small>Toad House POS</small></h1>
+  <span class="spacer"></span>
+  <span class="clock num" id="clock"></span>
+  <button class="ghost" id="btnSales">오늘 매출</button>
+  <button class="ghost" id="btnMenu">메뉴/설정</button>
+</header>
+
+<main id="floor"></main>
+
+<main id="order" hidden>
+  <section id="menuSide">
+    <div id="cats"></div>
+    <div id="items"></div>
+  </section>
+  <aside id="check">
+    <div class="hd"><button class="ghost" id="btnBack">← 테이블</button><h2 id="ttl"></h2><span class="spacer"></span><span class="num" id="opened" style="color:var(--muted)"></span></div>
+    <div id="lines"></div>
+    <div class="tot">
+      <span>소계</span><span class="num" id="sub"></span>
+      <span>세금 <span id="taxLbl"></span></span><span class="num" id="tax"></span>
+      <span class="big">합계</span><span class="big num" id="total"></span>
+    </div>
+    <div class="acts">
+      <button class="warn wide" id="btnKitchen">주방으로 보내기 (출력)</button>
+      <button id="btnReceipt">손님 영수증 출력</button>
+      <button class="primary" id="btnPaid">결제 완료</button>
+      <button class="danger" id="btnClear" style="grid-column:1/-1">주문 전체 취소</button>
+    </div>
+  </aside>
+</main>
+
+<div id="modal" class="modal" hidden><div class="box" id="modalBox"></div></div>
+<div id="printArea"></div>
+
+<script>
+const STORE="toadhouse-pos-v2";
+const DEFAULT_MENU=`# 형식: 카테고리 | 메뉴 이름 | 가격 | 영문 이름(영수증용, 선택)
+구이류 | 두꺼비 삼겹살 | 35 | Pork Belly
+구이류 | 두꺼비 항정살 | 40 | Pork Jowls
+구이류 | 두꺼비 목살 | 30 | Pork Shoulder
+구이류 | 두꺼비 껍데기 | 25 | Pork Skin
+구이류 | 두꺼비 차돌 | 40 | Beef Brisket
+구이류 | 두꺼비 주물럭 | 55 | Marinated Beef Ribs
+안주류 | 육회 | 30 | Beef Tartare
+안주류 | 해물파전 | 25 | Seafood Pancake
+안주류 | 오징어볶음 | 25 | Spicy Squid
+안주류 | 골뱅이무침 | 28 | Seasoned Sea Snails
+안주류 | 돼지불고기 | 30 | Pork Bulgogi
+안주류 | 양념두부 | 10 | Seasoned Tofu
+안주류 | 비빔국수 | 20 | Noodles w/ Vegetables
+안주류 | 김치전 | 10 | Kimchi Pancake
+안주류 | 계란 후라이 | 2 | Fried Eggs
+식사류 | 고추장찌개 (1인) | 25 | Spicy Pepper Paste Soup (1)
+식사류 | 고추장찌개 (2인) | 45 | Spicy Pepper Paste Soup (2)
+식사류 | 김치찌개 (1인) | 25 | Kimchi Soup (1)
+식사류 | 김치찌개 (2인) | 45 | Kimchi Soup (2)
+식사류 | 된장찌개 (1인) | 20 | Soybean Paste Soup (1)
+식사류 | 된장찌개 (2인) | 40 | Soybean Paste Soup (2)
+식사류 | 동태매운탕 | 45 | Spicy Pollack Soup
+식사류 | 계란찜 | 7 | Steamed Eggs
+식사류 | 볶음밥 (1인) | 10 | Fried Rice (1)
+식사류 | 볶음밥 (2인) | 16 | Fried Rice (2)
+소주/전통주 | 새로 | 13 | Soju Saero
+소주/전통주 | 처음처럼 | 13 | Soju Chum Churum
+소주/전통주 | 참이슬 | 13 | Soju Chamisul
+소주/전통주 | 이즈백 | 13 | Soju Is Back
+소주/전통주 | 국순당 생막걸리 | 13 | Draft Rice Wine
+소주/전통주 | 백세주 | 17 | Bekseju
+소주/전통주 | 명작 복분자 | 19 | Bokbunja
+맥주 | 크러쉬 | 10 | Beer Krush
+맥주 | 클라우드 | 10 | Beer Kloud
+맥주 | 카스 | 10 | Beer Cass
+맥주 | 테라 | 10 | Beer Terra
+음료 | 코카콜라 | 3 | Coke
+음료 | 코크 제로 | 3 | Coke Zero
+음료 | 다이어트 코크 | 3 | Diet Coke
+음료 | 세븐업 | 3 | 7 Up`;
+
+let S=load();
+function load(){
+  let d=null; try{d=JSON.parse(localStorage.getItem(STORE))}catch(e){}
+  d=d||{};
+  d.settings=Object.assign({tax:9.75,tables:12,togo:3,nextNo:1001,name:"Toad House",addr:"4503 Beverly Blvd, Los Angeles, CA 90004",phone:"(323) 460-7037"},d.settings||{});
+  d.menuText=d.menuText||DEFAULT_MENU;
+  d.tables=d.tables||{};
+  d.sales=d.sales||[];
+  return d;
+}
+function save(){try{localStorage.setItem(STORE,JSON.stringify(S))}catch(e){}}
+const menu=()=>S.menuText.split("\n").map(l=>l.trim()).filter(l=>l&&!l.startsWith("#")).map((l,i)=>{const[c,n,p,e]=l.split("|").map(x=>(x||"").trim());return{id:i,cat:c||"기타",name:n||c,price:parseFloat(p)||0,en:e||""}});
+const $=id=>document.getElementById(id);
+const money=n=>"$"+(Math.round(n*100)/100).toFixed(2);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const tableIds=()=>[...Array(S.settings.tables)].map((_,i)=>"T"+(i+1)).concat([...Array(S.settings.togo)].map((_,i)=>"TO"+(i+1)));
+const label=id=>id.startsWith("TO")?"투고 "+id.slice(2):"테이블 "+id.slice(1);
+const timeStr=d=>new Date(d).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"});
+function calc(t){const sub=(t?.items||[]).reduce((a,x)=>a+x.price*x.qty,0);const tax=Math.round(sub*S.settings.tax)/100;return{sub,tax,total:sub+tax}}
+
+let cur=null, curCat=null;
+
+function renderFloor(){
+  const f=$("floor"); f.innerHTML="";
+  const add=(h)=>{const d=document.createElement("div");d.className="sect";d.textContent=h;f.appendChild(d)};
+  add("홀 테이블");
+  tableIds().forEach(id=>{
+    if(id==="TO1")add("투고 / 픽업");
+    const t=S.tables[id]; const busy=t&&t.items.length;
+    const b=document.createElement("button"); b.className="tbl"+(busy?" busy":"");
+    const unsent=busy?t.items.filter(x=>x.qty>x.sent).length:0;
+    b.innerHTML=`<span class="name">${id.startsWith("TO")?"투고 "+id.slice(2):id.slice(1)}</span>
+      <span class="meta">${busy?timeStr(t.opened)+" 시작 · "+t.items.reduce((a,x)=>a+x.qty,0)+"개":"비어있음"}${unsent?' · <b style="color:var(--busy)">미전송 '+unsent+'</b>':""}</span>
+      ${busy?`<span class="amt num">${money(calc(t).total)}</span>`:""}`;
+    b.onclick=()=>openTable(id); f.appendChild(b);
+  });
+}
+function openTable(id){
+  cur=id; if(!S.tables[id])S.tables[id]={items:[],opened:Date.now()};
+  $("floor").hidden=true; $("order").hidden=false; renderOrder();
+}
+function back(){
+  const t=S.tables[cur]; if(t&&!t.items.length)delete S.tables[cur];
+  save(); cur=null; $("order").hidden=true; $("floor").hidden=false; renderFloor();
+}
+function renderOrder(){
+  const m=menu(); const cats=[...new Set(m.map(x=>x.cat))];
+  if(!cats.includes(curCat))curCat=cats[0];
+  $("cats").innerHTML=""; cats.forEach(c=>{const b=document.createElement("button");b.textContent=c;if(c===curCat)b.className="on";b.onclick=()=>{curCat=c;renderOrder()};$("cats").appendChild(b)});
+  $("items").innerHTML=""; m.filter(x=>x.cat===curCat).forEach(x=>{const b=document.createElement("button");b.className="mi";b.innerHTML=`<b>${esc(x.name)}</b><span class="num">${money(x.price)}</span>`;b.onclick=()=>addItem(x);$("items").appendChild(b)});
+  const t=S.tables[cur]; $("ttl").textContent=label(cur); $("opened").textContent=timeStr(t.opened)+" 시작";
+  const L=$("lines"); L.innerHTML="";
+  if(!t.items.length)L.innerHTML='<div class="empty">왼쪽 메뉴를 눌러 주문을 추가하세요.</div>';
+  t.items.forEach((x,i)=>{
+    const d=document.createElement("div"); d.className="ln";
+    const st=x.qty>x.sent?`<span class="pill new">주방 미전송 ${x.qty-x.sent}</span>`:`<span class="pill sent">전송됨</span>`;
+    d.innerHTML=`<span class="nm">${esc(x.name)} × <span class="num">${x.qty}</span></span><span class="pr num">${money(x.price*x.qty)}</span>
+      ${x.note?`<span class="note">↳ ${esc(x.note)}</span>`:""}
+      <span class="ctl"><button data-a="m">−</button><button data-a="p">+</button><button data-a="n">메모</button><span class="spacer"></span>${st}</span>`;
+    d.querySelector('[data-a=m]').onclick=()=>{x.qty--; if(x.qty<x.sent)x.sent=x.qty; if(x.qty<=0)t.items.splice(i,1); save(); renderOrder()};
+    d.querySelector('[data-a=p]').onclick=()=>{x.qty++; save(); renderOrder()};
+    d.querySelector('[data-a=n]').onclick=()=>noteModal(x);
+    L.appendChild(d);
+  });
+  const c=calc(t); $("sub").textContent=money(c.sub); $("tax").textContent=money(c.tax); $("taxLbl").textContent=`(${S.settings.tax}%)`; $("total").textContent=money(c.total);
+  $("btnKitchen").disabled=!t.items.some(x=>x.qty>x.sent);
+}
+function addItem(m){
+  const t=S.tables[cur]; const ex=t.items.find(x=>x.id===m.id&&x.name===m.name&&!x.note);
+  if(ex)ex.qty++; else t.items.push({id:m.id,name:m.name,en:m.en,price:m.price,qty:1,sent:0,note:""});
+  save(); renderOrder();
+}
+
+/* modal helpers (no alert/prompt) */
+function modal(html){$("modalBox").innerHTML=html;$("modal").hidden=false}
+function closeModal(){$("modal").hidden=true}
+$("modal").onclick=e=>{if(e.target.id==="modal")closeModal()};
+function confirmBox(msg,ok){modal(`<h3>${msg}</h3><div class="row"><button id="mNo">아니요</button><button class="primary" id="mYes">예</button></div>`);$("mNo").onclick=closeModal;$("mYes").onclick=()=>{closeModal();ok()}}
+function noteModal(x){
+  modal(`<h3>${esc(x.name)} 메모 (주방에 출력됨)</h3><input id="mNote" value="${esc(x.note)}" placeholder="예: 덜 맵게, 계란 추가"><div class="row"><button id="mNo">취소</button><button class="primary" id="mYes">저장</button></div>`);
+  $("mNote").focus(); $("mNo").onclick=closeModal;
+  $("mYes").onclick=()=>{const v=$("mNote").value.trim(); if(v!==x.note){x.note=v; x.sent=0;} save(); closeModal(); renderOrder()};
+}
+
+/* printing */
+function doPrint(html){$("printArea").innerHTML=html; setTimeout(()=>window.print(),50)}
+function kitchenTicket(){
+  const t=S.tables[cur]; const now=new Date();
+  const lines=t.items.filter(x=>x.qty>x.sent);
+  const isAdd=t.items.some(x=>x.sent>0);
+  const html=`<div class="tk">
+    <div class="big">${label(cur)}</div>
+    <div class="c b">${isAdd?"*** 추가 주문 ***":"주방 주문서"}</div>
+    <div class="c">${now.toLocaleDateString("ko-KR")} ${now.toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})}</div><hr>
+    ${lines.map(x=>`<div class="kit">${x.qty-x.sent} × ${esc(x.name)}</div>${x.note?`<div class="kn">↳ ${esc(x.note)}</div>`:""}`).join("")}
+    <hr><div class="c">${lines.reduce((a,x)=>a+x.qty-x.sent,0)}개 항목</div></div>`;
+  lines.forEach(x=>x.sent=x.qty); save(); renderOrder(); doPrint(html);
+}
+function receiptHtml(t,id,no,when,paid){
+  const c=calc(t); const s=S.settings; const d=new Date(when);
+  const tips=[18,20,22].map(p=>`<div class="r"><span>${p}%</span><span>${money(c.sub*p/100)}</span></div>`).join("");
+  return `<div class="tk">
+    <h1>두꺼비집</h1><div class="c">${esc(s.name)} · Korean BBQ</div><div class="c">${esc(s.addr)}</div><div class="c">${esc(s.phone)}</div><hr>
+    <div class="r"><span>${label(id)}</span><span>#${no}</span></div>
+    <div class="r"><span>${d.toLocaleDateString("en-US")}</span><span>${d.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})}</span></div><hr>
+    ${t.items.map(x=>`<div class="r"><span>${x.qty} ${esc(x.name)}</span><span>${money(x.price*x.qty)}</span></div>${x.en?`<div style="margin:-2px 0 3px 14px">${esc(x.en)}</div>`:""}`).join("")}<hr>
+    <div class="r"><span>Subtotal</span><span>${money(c.sub)}</span></div>
+    <div class="r"><span>Tax ${s.tax}%</span><span>${money(c.tax)}</span></div>
+    <div class="r b"><span>TOTAL</span><span>${money(c.total)}</span></div>
+    ${paid?`<div class="c b">PAID</div>`:`<hr><div class="c">Tip Guide (pre-tax)</div>${tips}`}
+    <hr><div class="c">감사합니다! Thank you!</div></div>`;
+}
+$("btnKitchen").onclick=kitchenTicket;
+$("btnReceipt").onclick=()=>{const t=S.tables[cur]; if(!t.items.length)return; if(!t.no){t.no=S.settings.nextNo++; save()} doPrint(receiptHtml(t,cur,t.no,Date.now(),false))};
+$("btnPaid").onclick=()=>{
+  const t=S.tables[cur]; if(!t.items.length)return;
+  const warn=t.items.some(x=>x.qty>x.sent)?"<p class='hint'>주방에 아직 안 보낸 메뉴가 있습니다.</p>":"";
+  modal(`<h3>${label(cur)} 결제 완료 처리</h3>${warn}<p class="num" style="font-size:22px;font-weight:900;margin:0">${money(calc(t).total)}</p>
+    <div class="row"><button id="mNo">취소</button><button id="mCard">카드</button><button id="mCash">현금</button></div>
+    <label class="hint"><input type="checkbox" id="mPr" style="width:auto"> 결제 영수증도 출력</label>`);
+  $("mNo").onclick=closeModal;
+  const fin=m=>{ if(!t.no)t.no=S.settings.nextNo++; const c=calc(t); const pr=$("mPr").checked;
+    S.sales.push({no:t.no,table:cur,time:Date.now(),method:m,sub:c.sub,tax:c.tax,total:c.total,items:t.items.map(x=>({n:x.name,q:x.qty,p:x.price}))});
+    const html=receiptHtml(t,cur,t.no,Date.now(),true); delete S.tables[cur]; save(); closeModal(); back(); if(pr)doPrint(html); };
+  $("mCard").onclick=()=>fin("카드"); $("mCash").onclick=()=>fin("현금");
+};
+$("btnClear").onclick=()=>confirmBox(`${label(cur)} 주문을 모두 지울까요?`,()=>{delete S.tables[cur];save();back()});
+$("btnBack").onclick=back;
+
+/* menu & settings */
+$("btnMenu").onclick=()=>{
+  const s=S.settings;
+  modal(`<h3>메뉴 / 설정</h3>
+  <p class="hint">한 줄에 하나씩 <b>카테고리 | 메뉴 이름 | 가격</b> 형식으로 입력하세요. # 으로 시작하는 줄은 무시됩니다.</p>
+  <textarea id="mMenu">${esc(S.menuText)}</textarea>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+   <label class="hint">세율 %<input id="mTax" value="${s.tax}"></label>
+   <label class="hint">테이블 수<input id="mTbl" value="${s.tables}"></label>
+   <label class="hint">투고 칸 수<input id="mTogo" value="${s.togo}"></label></div>
+  <label class="hint">주소<input id="mAddr" value="${esc(s.addr)}"></label>
+  <label class="hint">전화<input id="mPhone" value="${esc(s.phone)}"></label>
+  <div class="row"><button id="mNo">닫기</button><button class="primary" id="mYes">저장</button></div>`);
+  $("mNo").onclick=closeModal;
+  $("mYes").onclick=()=>{S.menuText=$("mMenu").value;
+    s.tax=parseFloat($("mTax").value)||0; s.tables=Math.max(1,parseInt($("mTbl").value)||12); s.togo=Math.max(0,parseInt($("mTogo").value)||0);
+    s.addr=$("mAddr").value; s.phone=$("mPhone").value; save(); closeModal(); cur?renderOrder():renderFloor()};
+};
+$("btnSales").onclick=()=>{
+  const today=new Date().toDateString(); const list=S.sales.filter(x=>new Date(x.time).toDateString()===today);
+  const sum=k=>list.reduce((a,x)=>a+x[k],0); const by=m=>list.filter(x=>x.method===m).reduce((a,x)=>a+x.total,0);
+  modal(`<h3>오늘 매출 · ${new Date().toLocaleDateString("ko-KR")}</h3>
+   <table class="rep num"><tr><td>결제 건수</td><td>${list.length}</td></tr><tr><td>매출 (세전)</td><td>${money(sum("sub"))}</td></tr>
+   <tr><td>세금</td><td>${money(sum("tax"))}</td></tr><tr><td><b>합계</b></td><td><b>${money(sum("total"))}</b></td></tr>
+   <tr><td>카드</td><td>${money(by("카드"))}</td></tr><tr><td>현금</td><td>${money(by("현금"))}</td></tr></table>
+   <table class="rep num">${list.slice().reverse().map(x=>`<tr><td>#${x.no} ${label(x.table)} · ${timeStr(x.time)} · ${x.method}</td><td>${money(x.total)}</td></tr>`).join("")||"<tr><td class='hint'>아직 결제된 건이 없습니다.</td><td></td></tr>"}</table>
+   <div class="row"><button id="mNo">닫기</button></div>`);
+  $("mNo").onclick=closeModal;
+};
+
+setInterval(()=>$("clock").textContent=new Date().toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"}),1000);
+$("clock").textContent=new Date().toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"});
+renderFloor();
+</script>
+</body>
+</html>
