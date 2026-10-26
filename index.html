@@ -62,6 +62,10 @@ header.top h1 small{font-weight:500;color:var(--muted);font-size:13px}
 .mi{text-align:left;min-height:92px;display:flex;flex-direction:column;gap:6px}
 .mi b{font-size:16px}
 .mi span{color:var(--muted);font-size:13px}
+.en{display:block;font-style:normal;font-weight:400;font-size:12px;color:var(--muted);line-height:1.3}
+#cats button{display:flex;flex-direction:column;align-items:flex-start;line-height:1.2}
+#cats button.on .en{color:inherit;opacity:.75}
+.mi .en{margin-top:-4px}
 #check{display:flex;flex-direction:column;background:var(--panel);min-width:0}
 #check .hd{padding:14px 16px;border-bottom:1px solid var(--line);display:flex;align-items:baseline;gap:10px}
 #check .hd h2{margin:0;font-size:22px;font-weight:900}
@@ -209,6 +213,7 @@ function load(){
 }
 function save(){try{localStorage.setItem(STORE,JSON.stringify(S))}catch(e){}}
 const menu=()=>S.menuText.split("\n").map(l=>l.trim()).filter(l=>l&&!l.startsWith("#")).map((l,i)=>{const[c,n,p,e]=l.split("|").map(x=>(x||"").trim());return{id:i,cat:c||"기타",name:n||c,price:parseFloat(p)||0,en:e||""}});
+const CAT_EN={"구이류":"Grilled","안주류":"Entrees","식사류":"Soups & Rice","소주/전통주":"Soju & Rice Wine","맥주":"Beer","음료":"Soft Drinks"};
 const $=id=>document.getElementById(id);
 const money=n=>"$"+(Math.round(n*100)/100).toFixed(2);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -245,15 +250,15 @@ function back(){
 function renderOrder(){
   const m=menu(); const cats=[...new Set(m.map(x=>x.cat))];
   if(!cats.includes(curCat))curCat=cats[0];
-  $("cats").innerHTML=""; cats.forEach(c=>{const b=document.createElement("button");b.textContent=c;if(c===curCat)b.className="on";b.onclick=()=>{curCat=c;renderOrder()};$("cats").appendChild(b)});
-  $("items").innerHTML=""; m.filter(x=>x.cat===curCat).forEach(x=>{const b=document.createElement("button");b.className="mi";b.innerHTML=`<b>${esc(x.name)}</b><span class="num">${money(x.price)}</span>`;b.onclick=()=>addItem(x);$("items").appendChild(b)});
-  const t=S.tables[cur]; $("ttl").textContent=label(cur); $("opened").textContent=timeStr(t.opened)+" 시작";
+  $("cats").innerHTML=""; cats.forEach(c=>{const b=document.createElement("button");b.innerHTML=esc(c)+(CAT_EN[c]?`<em class="en">${CAT_EN[c]}</em>`:"");if(c===curCat)b.className="on";b.onclick=()=>{curCat=c;renderOrder()};$("cats").appendChild(b)});
+  $("items").innerHTML=""; m.filter(x=>x.cat===curCat).forEach(x=>{const b=document.createElement("button");b.className="mi";b.innerHTML=`<b>${esc(x.name)}</b>${x.en?`<em class="en">${esc(x.en)}</em>`:""}<span class="num">${money(x.price)}</span>`;b.onclick=()=>addItem(x);$("items").appendChild(b)});
+  const t=S.tables[cur]; t.items.forEach(x=>{if(!x.en){const f=m.find(y=>y.name===x.name);if(f)x.en=f.en}}); $("ttl").textContent=label(cur); $("opened").textContent=timeStr(t.opened)+" 시작";
   const L=$("lines"); L.innerHTML="";
   if(!t.items.length)L.innerHTML='<div class="empty">왼쪽 메뉴를 눌러 주문을 추가하세요.</div>';
   t.items.forEach((x,i)=>{
     const d=document.createElement("div"); d.className="ln";
     const st=x.qty>x.sent?`<span class="pill new">주방 미전송 ${x.qty-x.sent}</span>`:`<span class="pill sent">전송됨</span>`;
-    d.innerHTML=`<span class="nm">${esc(x.name)} × <span class="num">${x.qty}</span></span><span class="pr num">${money(x.price*x.qty)}</span>
+    d.innerHTML=`<span class="nm">${esc(x.name)} × <span class="num">${x.qty}</span>${x.en?`<em class="en">${esc(x.en)}</em>`:""}</span><span class="pr num">${money(x.price*x.qty)}</span>
       ${x.note?`<span class="note">↳ ${esc(x.note)}</span>`:""}
       <span class="ctl"><button data-a="m">−</button><button data-a="p">+</button><button data-a="n">메모</button><span class="spacer"></span>${st}</span>`;
     d.querySelector('[data-a=m]').onclick=()=>{x.qty--; if(x.qty<x.sent)x.sent=x.qty; if(x.qty<=0)t.items.splice(i,1); save(); renderOrder()};
@@ -291,7 +296,7 @@ function kitchenTicket(){
     <div class="big">${label(cur)}</div>
     <div class="c b">${isAdd?"*** 추가 주문 ***":"주방 주문서"}</div>
     <div class="c">${now.toLocaleDateString("ko-KR")} ${now.toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})}</div><hr>
-    ${lines.map(x=>`<div class="kit">${x.qty-x.sent} × ${esc(x.name)}</div>${x.note?`<div class="kn">↳ ${esc(x.note)}</div>`:""}`).join("")}
+    ${lines.map(x=>`<div class="kit">${x.qty-x.sent} × ${esc(x.name)}</div>${x.en?`<div class="kn">${esc(x.en)}</div>`:""}${x.note?`<div class="kn">↳ ${esc(x.note)}</div>`:""}`).join("")}
     <hr><div class="c">${lines.reduce((a,x)=>a+x.qty-x.sent,0)}개 항목</div></div>`;
   lines.forEach(x=>x.sent=x.qty); save(); renderOrder(); doPrint(html);
 }
