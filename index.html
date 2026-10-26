@@ -113,9 +113,9 @@ table.rep td:last-child{text-align:right}
   .tk .c{text-align:center}
   .tk hr{border:0;border-top:1px dashed #000;margin:6px 0}
   .tk .r{display:flex;justify-content:space-between;gap:6px}
-  .tk .kit{font-family:var(--sans);font-size:20px;font-weight:900;margin:6px 0}
-  .tk .kn{font-family:var(--sans);font-size:15px;margin:-4px 0 6px 28px}
-  .tk .big{font-size:26px;font-weight:900;text-align:center;font-family:var(--sans)}
+  .tk .kit{font-family:var(--sans);font-size:30px;font-weight:900;line-height:1.2;margin:10px 0 2px}
+  .tk .kn{font-family:var(--sans);font-size:19px;font-weight:700;margin:0 0 4px 22px}
+  .tk .big{font-size:40px;font-weight:900;text-align:center;font-family:var(--sans)}
   .tk .b{font-weight:700;font-size:14px}
 }
 </style>
@@ -295,7 +295,7 @@ function kitchenTicket(){
   const isAdd=t.items.some(x=>x.sent>0);
   const html=`<div class="tk">
     <div class="big">${label(cur)}</div>
-    <div class="c b">${isAdd?"*** 추가 주문 ***":"주방 주문서"}</div>
+    <div class="c b" style="font-size:20px">${isAdd?"*** 추가 주문 ***":"주방 주문서"}</div>
     <div class="c">${now.toLocaleDateString("ko-KR")} ${now.toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})}</div><hr>
     ${lines.map(x=>`<div class="kit">${x.qty-x.sent} × ${esc(x.name)}</div>${x.en?`<div class="kn">${esc(x.en)}</div>`:""}${x.note?`<div class="kn">↳ ${esc(x.note)}</div>`:""}`).join("")}
     <hr><div class="c">${lines.reduce((a,x)=>a+x.qty-x.sent,0)}개 항목</div></div>`;
