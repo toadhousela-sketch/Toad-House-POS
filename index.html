@@ -205,7 +205,8 @@ let S=load();
 function load(){
   let d=null; try{d=JSON.parse(localStorage.getItem(STORE))}catch(e){}
   d=d||{};
-  d.settings=Object.assign({tax:9.75,tables:12,togo:3,nextNo:1001,name:"Toad House",addr:"4503 Beverly Blvd, Los Angeles, CA 90004",phone:"(323) 460-7037"},d.settings||{});
+  d.settings=Object.assign({tax:10.25,tables:12,togo:3,nextNo:1001,name:"Toad House",addr:"4503 Beverly Blvd, Los Angeles, CA 90004",phone:"(323) 460-7037"},d.settings||{});
+  if(d.settings.tax===9.75)d.settings.tax=10.25;
   d.menuText=d.menuText||DEFAULT_MENU;
   d.tables=d.tables||{};
   d.sales=d.sales||[];
