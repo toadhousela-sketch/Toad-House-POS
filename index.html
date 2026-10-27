@@ -124,6 +124,10 @@ table.rep tr.cat td{font-weight:700;background:var(--bg);padding-top:10px}
   body{background:#fff;color:#000}
   body > *:not(#printArea){display:none!important}
   #printArea{display:block;width:72mm;font-family:var(--mono);font-size:12px;color:#000}
+  .tk{position:relative}
+  .tk .wm{position:absolute;left:0;right:0;top:58%;transform:translateY(-50%);opacity:.12;z-index:0;pointer-events:none}
+  .tk .wm svg{width:62mm!important;height:62mm!important}
+  .tk > *:not(.wm){position:relative;z-index:1}
   .tk h1{font-family:var(--sans);font-size:20px;margin:0;text-align:center}
   .tk .c{text-align:center}
   .tk hr{border:0;border-top:1px dashed #000;margin:6px 0}
@@ -459,7 +463,7 @@ function kitchenDoc(id,lines,isAdd,now){
 }
 function receiptDoc(t,id,no,when,paid){
   const c=calc(t), s=S.settings, dt=new Date(when);
-  const d=[{logo:1,size:240},{t:s.addr,s:22,a:"c",gap:6},{t:s.phone,s:22,a:"c"},{hr:1},
+  const d=[{logo:1,size:240,wm:S.settings.watermark!==false},{t:s.addr,s:22,a:"c",gap:6},{t:s.phone,s:22,a:"c"},{hr:1},
     {l:label(id),r:"#"+no,s:26},{l:dt.toLocaleDateString("en-US"),r:dt.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"}),s:26},{hr:1}];
   t.items.forEach(x=>{ d.push({l:x.qty+" "+x.name,r:money(x.price*x.qty),s:28}); const z=itemZh(x); const sub=[x.en,z].filter(Boolean).join(" · "); if(sub)d.push({t:sub,s:22,ind:26}); });
   d.push({hr:1},{l:"Subtotal",r:money(c.sub),s:26},{l:"Tax "+s.tax+"%",r:money(c.tax),s:26},{l:"TOTAL",r:money(c.total),s:34,b:1});
@@ -475,10 +479,10 @@ function docToPNG(doc){
     for(const ch of String(text)){ const tryL=line+ch; if(ctx.measureText(tryL).width>maxW&&line){ out.push(line); line=ch.trimStart(); } else line=tryL; }
     if(line||!out.length)out.push(line); return out; };
   // layout
-  const ops=[]; let y=P;
+  const ops=[]; let y=P, wmTop=-1;
   doc.forEach(o=>{
     if(o.hr){ ops.push({hr:1,y:y+10}); y+=22; return; }
-    if(o.logo){ ops.push({logo:1,y:y+4,size:o.size}); y+=o.size+12; return; }
+    if(o.logo){ ops.push({logo:1,y:y+4,size:o.size}); y+=o.size+12; if(o.wm)wmTop=y; return; }
     y+=o.gap||0; ctx.font=font(o); const lh=Math.round(o.s*1.28);
     if(o.l!==undefined){ const rw=ctx.measureText(o.r).width; const ls=wrap(o.l,W-2*P-rw-16);
       ls.forEach((ln,i)=>{ ops.push({o,x:P,y,txt:ln,al:"left"}); if(i===0)ops.push({o,x:W-P,y,txt:o.r,al:"right"}); y+=lh; }); return; }
@@ -490,6 +494,14 @@ function docToPNG(doc){
     ctx.font=font(op.o); ctx.textAlign=op.al; ctx.fillText(op.txt,op.x,op.y); });
   const im=ctx.getImageData(0,0,cv.width,cv.height), px=im.data;
   for(let i=0;i<px.length;i+=4){ const v=(px[i]+px[i+1]+px[i+2])/3<150?0:255; px[i]=px[i+1]=px[i+2]=v; px[i+3]=255; }
+  if(wmTop>=0){ // faint emblem behind the text: sparse dots so a 1-bit thermal printer prints it as light gray
+    const sz=Math.min(W-40,440), wy=Math.round(Math.max(wmTop, wmTop+(cv.height-30-wmTop-sz)/2));
+    const wc=document.createElement("canvas"); wc.width=sz; wc.height=sz; const wx=wc.getContext("2d");
+    wx.fillStyle="#fff"; wx.fillRect(0,0,sz,sz); drawBadge(wx,0,0,sz);
+    const wd=wx.getImageData(0,0,sz,sz).data, ox=Math.round((W-sz)/2);
+    for(let yy=0;yy<sz;yy++){ const Y=wy+yy; if(Y<0||Y>=cv.height)continue;
+      for(let xx=0;xx<sz;xx++){ if((xx+yy)%3||yy%2)continue; const k=(yy*sz+xx)*4; if(wd[k]>=150)continue;
+        const i=(Y*W+ox+xx)*4; if(px[i]===255){ px[i]=px[i+1]=px[i+2]=0; } } } }
   ctx.putImageData(im,0,0);
   return cv.toDataURL("image/png").split(",")[1];
 }
@@ -527,7 +539,7 @@ function receiptHtml(t,id,no,when,paid){
   const c=calc(t); const s=S.settings; const d=new Date(when);
   const tips=[18,20,22].map(p=>`<div class="r"><span>${p}%</span><span>${money(c.sub*p/100)}</span></div>`).join("");
   return `<div class="tk">
-    ${BADGE_SVG}<div class="c">${esc(s.addr)}</div><div class="c">${esc(s.phone)}</div><hr>
+    ${BADGE_SVG}${S.settings.watermark!==false?`<div class="wm">${BADGE_SVG}</div>`:""}<div class="c">${esc(s.addr)}</div><div class="c">${esc(s.phone)}</div><hr>
     <div class="r"><span>${label(id)}</span><span>#${no}</span></div>
     <div class="r"><span>${d.toLocaleDateString("en-US")}</span><span>${d.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})}</span></div><hr>
     ${t.items.map(x=>`<div class="r"><span>${x.qty} ${esc(x.name)}</span><span>${money(x.price*x.qty)}</span></div>${(x.en||itemZh(x))?`<div style="margin:-2px 0 3px 14px">${esc([x.en,itemZh(x)].filter(Boolean).join(" · "))}</div>`:""}`).join("")}<hr>
@@ -569,11 +581,12 @@ $("btnMenu").onclick=()=>{
   ${CLOUD?`<label class="hint">출력 방식<select id="mPm" style="width:100%;font:inherit;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)"><option value="cloud" ${(s.printMode||"cloud")==="cloud"?"selected":""}>주방 프린터로 자동 출력 (Star CloudPRNT)</option><option value="dialog" ${s.printMode==="dialog"?"selected":""}>인쇄 창 열기 (AirPrint)</option></select></label>`:""}
   <label class="hint">주소<input id="mAddr" value="${esc(s.addr)}"></label>
   <label class="hint">전화<input id="mPhone" value="${esc(s.phone)}"></label>
+  <label class="hint" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="mWm" style="width:auto" ${s.watermark!==false?"checked":""}> 손님 영수증 글씨 뒤에 흐린 엠블럼 넣기</label>
   <div class="row">${CLOUD?'<button class="danger" id="mOut" style="margin-right:auto">이 기기 로그아웃</button>':""}<button id="mNo">닫기</button><button class="primary" id="mYes">저장</button></div>`);
   $("mNo").onclick=closeModal; if(CLOUD)$("mOut").onclick=()=>{closeModal();firebase.auth().signOut()};
   $("mYes").onclick=()=>{S.menuText=$("mMenu").value;
     s.tax=parseFloat($("mTax").value)||0; s.tables=Math.max(1,parseInt($("mTbl").value)||12); s.togo=Math.max(0,parseInt($("mTogo").value)||0);
-    s.addr=$("mAddr").value; s.phone=$("mPhone").value; if($("mPm"))s.printMode=$("mPm").value; commitSettings(); printerStatus(); closeModal(); cur?renderOrder():renderFloor()};
+    s.addr=$("mAddr").value; s.phone=$("mPhone").value; if($("mPm"))s.printMode=$("mPm").value; s.watermark=$("mWm").checked; commitSettings(); printerStatus(); closeModal(); cur?renderOrder():renderFloor()};
 };
 let RP={mode:"day",anchor:null};
 function periodRange(mode,anchor){
