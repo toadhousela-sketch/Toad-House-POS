@@ -81,7 +81,7 @@ header.top h1 small{font-weight:500;color:var(--muted);font-size:13px}
 .ln .ctl{grid-column:1/-1;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .ln .ctl button{padding:4px 12px;border-radius:8px}
 .pill{font-size:11px;padding:2px 8px;border-radius:99px;border:1px solid currentColor;font-weight:700;letter-spacing:.03em}
-.pill.new{color:var(--busy)} .pill.sent{color:var(--sent)}
+.pill.new{color:var(--busy)} .pill.sent{color:var(--sent)} .pill.bar{color:var(--muted,#888)}
 .pill.svc{color:#2E6B45;margin-right:6px} .ctl button.svcOn{border-color:#2E6B45;color:#2E6B45} s.was{opacity:.5;font-weight:400}
 .note{grid-column:1/-1;color:var(--busy);font-size:13px}
 .empty{padding:40px 16px;color:var(--muted);text-align:center}
@@ -374,6 +374,10 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",
 const tableIds=()=>[...Array(S.settings.tables)].map((_,i)=>"T"+(i+1)).concat([...Array(S.settings.togo)].map((_,i)=>"TO"+(i+1)));
 const label=id=>id.startsWith("TO")?"투고 "+id.slice(2):"테이블 "+id.slice(1);
 const timeStr=d=>new Date(d).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"});
+// 주류는 주방으로 보내지 않음
+const NO_KITCHEN=["소주/전통주","맥주"];
+const isBar=x=>{const f=menu().find(y=>y.name===x.name);return !!f&&NO_KITCHEN.includes(f.cat)};
+const needK=x=>!isBar(x)&&x.qty>x.sent;
 const lineAmt=x=>x.svc?0:x.price*x.qty;
 const SVC_LBL=" (서비스)";
 // 서비스(무료) 품목: 손님 금액은 $0, 세금은 원래 가격 기준으로 계산
@@ -396,7 +400,7 @@ function renderFloor(){
     if(id==="TO1")add("투고 / 픽업");
     const t=S.tables[id]; const busy=t&&t.items.length;
     const b=document.createElement("button"); b.className="tbl"+(busy?" busy":"");
-    const unsent=busy?t.items.filter(x=>x.qty>x.sent).length:0;
+    const unsent=busy?t.items.filter(needK).length:0;
     b.innerHTML=`<span class="name">${id.startsWith("TO")?"투고 "+id.slice(2):id.slice(1)}</span>
       <span class="meta">${busy?timeStr(t.opened)+" 시작 · "+t.items.reduce((a,x)=>a+x.qty,0)+"개":"비어있음"}${unsent?' · <b style="color:var(--busy)">미전송 '+unsent+'</b>':""}</span>
       ${busy?`<span class="amt num">${money(calc(t).total)}</span>`:""}`;
@@ -421,7 +425,7 @@ function renderOrder(){
   if(!t.items.length)L.innerHTML='<div class="empty">왼쪽 메뉴를 눌러 주문을 추가하세요.</div>';
   t.items.forEach((x,i)=>{
     const d=document.createElement("div"); d.className="ln";
-    const st=x.qty>x.sent?`<span class="pill new">주방 미전송 ${x.qty-x.sent}</span>`:`<span class="pill sent">전송됨</span>`;
+    const st=isBar(x)?`<span class="pill bar">주방 안 감</span>`:x.qty>x.sent?`<span class="pill new">주방 미전송 ${x.qty-x.sent}</span>`:`<span class="pill sent">전송됨</span>`;
     d.innerHTML=`<span class="nm">${esc(x.name)} × <span class="num">${x.qty}</span>${x.en?`<em class="en">${esc(x.en)}</em>`:""}</span><span class="pr num">${x.svc?`<s class="was">${money(x.price*x.qty)}</s> `:""}${money(lineAmt(x))}</span>
       ${x.note?`<span class="note">↳ ${esc(x.note)}</span>`:""}
       <span class="ctl"><button data-a="m">−</button><button data-a="p">+</button><button data-a="n">메모</button><button data-a="s" class="${x.svc?"svcOn":""}">${x.svc?"서비스 취소":"서비스"}</button><span class="spacer"></span>${x.svc?`<span class="pill svc">서비스 $0</span>`:""}${st}</span>`;
@@ -432,7 +436,7 @@ function renderOrder(){
     L.appendChild(d);
   });
   const c=calc(t); $("sub").textContent=money(c.sub); $("tax").textContent=money(c.tax); $("taxLbl").textContent=`(${S.settings.tax}%)`; $("total").textContent=money(c.total);
-  $("btnKitchen").disabled=!t.items.some(x=>x.qty>x.sent);
+  $("btnKitchen").disabled=!t.items.some(needK);
 }
 function addItem(m){
   const t=S.tables[cur]; const ex=t.items.find(x=>x.id===m.id&&x.name===m.name&&!x.note&&!x.svc);
@@ -560,8 +564,8 @@ setInterval(printerStatus,10000);
 function doPrint(html){$("printArea").innerHTML=html; setTimeout(()=>window.print(),50)}
 function kitchenTicket(){
   const t=S.tables[cur]; const now=new Date();
-  const lines=t.items.filter(x=>x.qty>x.sent);
-  const isAdd=t.items.some(x=>x.sent>0);
+  const lines=t.items.filter(needK);
+  const isAdd=t.items.some(x=>!isBar(x)&&x.sent>0);
   const html=`<div class="tk">
     <div class="big">${label(cur)}</div>
     <div class="c b" style="font-size:20px">${isAdd?"*** 추가 주문 ***":"주방 주문서"}</div>
@@ -588,7 +592,7 @@ $("btnKitchen").onclick=kitchenTicket;
 $("btnReceipt").onclick=async()=>{const id=cur; let t=S.tables[id]; if(!t||!t.items.length)return; if(!t.no){const n=await nextReceiptNo(); t=S.tables[id]; if(!t)return; t.no=n; commitTable(id)} const w=Date.now(); sendPrint(receiptDoc(t,id,t.no,w,false),receiptHtml(t,id,t.no,w,false),"receipt",id)};
 $("btnPaid").onclick=()=>{
   const t=S.tables[cur]; if(!t.items.length)return;
-  const warn=t.items.some(x=>x.qty>x.sent)?"<p class='hint'>주방에 아직 안 보낸 메뉴가 있습니다.</p>":"";
+  const warn=t.items.some(needK)?"<p class='hint'>주방에 아직 안 보낸 메뉴가 있습니다.</p>":"";
   modal(`<h3>${label(cur)} 결제 완료 처리</h3>${warn}<p class="num" style="font-size:22px;font-weight:900;margin:0">${money(calc(t).total)}</p>
     <div class="row"><button id="mNo">취소</button><button id="mCard">카드</button><button id="mCash">현금</button></div>
     <label class="hint"><input type="checkbox" id="mPr" style="width:auto"> 결제 영수증도 출력</label>`);
