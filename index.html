@@ -39,6 +39,8 @@ header.top h1{margin:0;font-size:20px;font-weight:900;letter-spacing:-.01em;disp
 header.top h1 small{font-weight:500;color:var(--muted);font-size:13px}
 .spacer{flex:1}
 .clock{color:var(--muted)}
+.sync{font-size:13px;font-weight:700}
+.sync.on{color:var(--sent)} .sync.off{color:var(--danger)}
 
 /* floor */
 #floor{padding:16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px;max-width:1200px;margin:0 auto}
@@ -125,6 +127,7 @@ table.rep td:last-child{text-align:right}
 <header class="top">
   <h1>🐸 두꺼비집 <small>Toad House POS</small></h1>
   <span class="spacer"></span>
+  <span class="sync" id="sync" hidden></span>
   <span class="clock num" id="clock"></span>
   <button class="ghost" id="btnSales">오늘 매출</button>
   <button class="ghost" id="btnMenu">메뉴/설정</button>
@@ -157,6 +160,9 @@ table.rep td:last-child{text-align:right}
 <div id="modal" class="modal" hidden><div class="box" id="modalBox"></div></div>
 <div id="printArea"></div>
 
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script>
 const STORE="toadhouse-pos-v2";
 const DEFAULT_MENU=`# 형식: 카테고리 | 메뉴 이름 | 가격 | 영문 이름(영수증용, 선택)
@@ -201,10 +207,21 @@ const DEFAULT_MENU=`# 형식: 카테고리 | 메뉴 이름 | 가격 | 영문 이
 음료 | 다이어트 코크 | 3 | Diet Coke
 음료 | 세븐업 | 3 | 7 Up`;
 
-let S=load();
-function load(){
-  let d=null; try{d=JSON.parse(localStorage.getItem(STORE))}catch(e){}
-  d=d||{};
+/* ===== Firebase 설정: 가게 Firebase 프로젝트 값으로 채우면 기기 간 공유 모드가 켜집니다 ===== */
+const FB_CONFIG = {
+  apiKey: "AIzaSyD6JQFDQV9o18SDwRksq6nTn2JemGaxGio",
+  authDomain: "toadhouse-pops.firebaseapp.com",
+  databaseURL: "https://toadhouse-pops-default-rtdb.firebaseio.com",
+  projectId: "toadhouse-pops",
+  storageBucket: "toadhouse-pops.firebasestorage.app",
+  messagingSenderId: "411440382673",
+  appId: "1:411440382673:web:e5106cd6851b01be8bfbf0"
+};
+const SHOP_EMAIL = "toadhousela@gmail.com";
+
+const CLOUD = !!FB_CONFIG && typeof firebase !== "undefined";
+let S = load();
+function defaults(d){
   d.settings=Object.assign({tax:10.25,tables:12,togo:3,nextNo:1001,name:"Toad House",addr:"4503 Beverly Blvd, Los Angeles, CA 90004",phone:"(323) 460-7037"},d.settings||{});
   if(d.settings.tax===9.75)d.settings.tax=10.25;
   d.menuText=d.menuText||DEFAULT_MENU;
@@ -212,7 +229,94 @@ function load(){
   d.sales=d.sales||[];
   return d;
 }
-function save(){try{localStorage.setItem(STORE,JSON.stringify(S))}catch(e){}}
+function load(){let d=null; try{d=JSON.parse(localStorage.getItem(STORE))}catch(e){} return defaults(d||{})}
+function saveLocal(){try{localStorage.setItem(STORE,JSON.stringify(S))}catch(e){}}
+const clean=o=>JSON.parse(JSON.stringify(o));
+function normTable(t){ if(!t)return t; t.items=(t.items||[]).map(x=>Object.assign({note:"",en:"",sent:0},x)); return t; }
+
+/* ---- storage layer: local (this device only) or cloud (shared) ---- */
+let db=null;
+function commitTable(id){
+  const t=S.tables[id];
+  const empty=!t||!t.items.length;
+  if(empty)delete S.tables[id];
+  if(CLOUD&&db){ db.ref("pos/tables/"+id).set(empty?null:clean(t)); }
+  else saveLocal();
+}
+function commitSettings(){
+  if(CLOUD&&db){ db.ref("pos/settings").set(clean(S.settings)); db.ref("pos/menuText").set(S.menuText); }
+  else saveLocal();
+}
+async function nextReceiptNo(){
+  if(CLOUD&&db){
+    const r=await db.ref("pos/nextNo").transaction(n=>(n||S.settings.nextNo||1001)+1);
+    return r.snapshot.val()-1;
+  }
+  const n=S.settings.nextNo++; saveLocal(); return n;
+}
+function addSale(sale){
+  if(CLOUD&&db){ db.ref("pos/sales").push(clean(sale)); }
+  else { S.sales.push(sale); saveLocal(); }
+}
+async function salesSince(ts){
+  if(CLOUD&&db){
+    const snap=await db.ref("pos/sales").orderByChild("time").startAt(ts).once("value");
+    const out=[]; snap.forEach(c=>{out.push(c.val())}); return out;
+  }
+  return S.sales.filter(x=>x.time>=ts);
+}
+function refresh(){
+  if(cur){ if(!S.tables[cur])S.tables[cur]={items:[],opened:Date.now()}; renderOrder(); } else renderFloor();
+}
+function setStatus(on){
+  const el=$("sync"); if(!el)return;
+  el.hidden=!CLOUD; el.className="sync "+(on?"on":"off"); el.textContent=on?"● 공유 연결됨":"● 오프라인";
+}
+function startCloud(){
+  firebase.initializeApp(FB_CONFIG);
+  db=firebase.database();
+  setStatus(false);
+  firebase.auth().onAuthStateChanged(u=>{
+    if(!u){ loginScreen(); return; }
+    closeModal();
+    db.ref(".info/connected").on("value",s=>setStatus(!!s.val()));
+    // first device to connect seeds the shared menu & settings from this device
+    db.ref("pos/settings").once("value").then(s=>{ if(!s.exists()){ commitSettings(); db.ref("pos/nextNo").set(S.settings.nextNo||1001); } });
+    db.ref("pos/settings").on("value",s=>{ if(s.exists()){ S.settings=defaults({settings:s.val()}).settings; refresh(); } });
+    db.ref("pos/menuText").on("value",s=>{ if(s.exists()){ S.menuText=s.val(); refresh(); } });
+    db.ref("pos/tables").on("value",s=>{
+      const v=s.val()||{}; const keep=cur&&S.tables[cur]&&!S.tables[cur].items.length?S.tables[cur]:null;
+      S.tables={}; Object.keys(v).forEach(k=>S.tables[k]=normTable(v[k]));
+      if(keep&&!S.tables[cur])S.tables[cur]=keep;
+      refresh();
+    });
+  });
+}
+function loginScreen(mode){
+  const create=mode==="create";
+  modal(`<h3>🐸 두꺼비집 POS ${create?"비밀번호 만들기":"로그인"}</h3>
+   <p class="hint">${create?"가게 POS 비밀번호를 처음 한 번만 정합니다. 6자 이상으로 정해 주세요.":"이 기기에서 처음 한 번만 로그인하면 됩니다. 가게의 다른 기기들과 주문이 공유됩니다."}</p>
+   <label class="hint">이메일<input id="lgE" type="email" value="${SHOP_EMAIL}" autocomplete="username" ${create?"readonly":""}></label>
+   <label class="hint">비밀번호<input id="lgP" type="password" autocomplete="${create?"new-password":"current-password"}"></label>
+   ${create?'<label class="hint">비밀번호 확인<input id="lgP2" type="password" autocomplete="new-password"></label>':""}
+   <p class="hint" id="lgErr" style="color:var(--danger)"></p>
+   <div class="row">${create?'<button id="lgBack">로그인으로</button>':'<button class="ghost" id="lgNew">처음 설정: 비밀번호 만들기</button>'}<button class="primary" id="lgGo">${create?"만들고 시작":"로그인"}</button></div>`, true);
+  const err=t=>$("lgErr").textContent=t;
+  const msg=e=>{const c=e.code||"";
+    if(/network/i.test(c))return "인터넷 연결을 확인해 주세요.";
+    if(/email-already-in-use/.test(c))return "이미 비밀번호가 만들어져 있습니다. 로그인으로 돌아가 주세요.";
+    if(/weak-password/.test(c))return "비밀번호는 6자 이상이어야 합니다.";
+    if(/too-many-requests/.test(c))return "시도가 너무 많습니다. 잠시 후 다시 해주세요.";
+    return create?"만들 수 없습니다: "+c:"이메일 또는 비밀번호가 맞지 않습니다.";};
+  const go=()=>{ err("");
+    const e=$("lgE").value.trim(), pw=$("lgP").value;
+    if(create){ if(pw.length<6)return err("비밀번호는 6자 이상이어야 합니다."); if(pw!==$("lgP2").value)return err("두 비밀번호가 다릅니다.");
+      firebase.auth().createUserWithEmailAndPassword(SHOP_EMAIL,pw).catch(x=>err(msg(x))); }
+    else firebase.auth().signInWithEmailAndPassword(e,pw).catch(x=>err(msg(x))); };
+  $("lgGo").onclick=go; $("lgP").onkeydown=e=>{if(e.key==="Enter"&&!create)go()};
+  if(create)$("lgBack").onclick=()=>loginScreen(); else $("lgNew").onclick=()=>loginScreen("create");
+}
+
 const menu=()=>S.menuText.split("\n").map(l=>l.trim()).filter(l=>l&&!l.startsWith("#")).map((l,i)=>{const[c,n,p,e]=l.split("|").map(x=>(x||"").trim());return{id:i,cat:c||"기타",name:n||c,price:parseFloat(p)||0,en:e||""}});
 const CAT_EN={"구이류":"Grilled","안주류":"Entrees","식사류":"Soups & Rice","소주/전통주":"Soju & Rice Wine","맥주":"Beer","음료":"Soft Drinks"};
 const $=id=>document.getElementById(id);
@@ -246,7 +350,7 @@ function openTable(id){
 }
 function back(){
   const t=S.tables[cur]; if(t&&!t.items.length)delete S.tables[cur];
-  save(); cur=null; $("order").hidden=true; $("floor").hidden=false; renderFloor();
+  if(!CLOUD)saveLocal(); cur=null; $("order").hidden=true; $("floor").hidden=false; renderFloor();
 }
 function renderOrder(){
   const m=menu(); const cats=[...new Set(m.map(x=>x.cat))];
@@ -262,9 +366,9 @@ function renderOrder(){
     d.innerHTML=`<span class="nm">${esc(x.name)} × <span class="num">${x.qty}</span>${x.en?`<em class="en">${esc(x.en)}</em>`:""}</span><span class="pr num">${money(x.price*x.qty)}</span>
       ${x.note?`<span class="note">↳ ${esc(x.note)}</span>`:""}
       <span class="ctl"><button data-a="m">−</button><button data-a="p">+</button><button data-a="n">메모</button><span class="spacer"></span>${st}</span>`;
-    d.querySelector('[data-a=m]').onclick=()=>{x.qty--; if(x.qty<x.sent)x.sent=x.qty; if(x.qty<=0)t.items.splice(i,1); save(); renderOrder()};
-    d.querySelector('[data-a=p]').onclick=()=>{x.qty++; save(); renderOrder()};
-    d.querySelector('[data-a=n]').onclick=()=>noteModal(x);
+    d.querySelector('[data-a=m]').onclick=()=>{x.qty--; if(x.qty<x.sent)x.sent=x.qty; if(x.qty<=0)t.items.splice(i,1); commitTable(cur); renderOrder()};
+    d.querySelector('[data-a=p]').onclick=()=>{x.qty++; commitTable(cur); renderOrder()};
+    d.querySelector('[data-a=n]').onclick=()=>noteModal(i);
     L.appendChild(d);
   });
   const c=calc(t); $("sub").textContent=money(c.sub); $("tax").textContent=money(c.tax); $("taxLbl").textContent=`(${S.settings.tax}%)`; $("total").textContent=money(c.total);
@@ -272,19 +376,21 @@ function renderOrder(){
 }
 function addItem(m){
   const t=S.tables[cur]; const ex=t.items.find(x=>x.id===m.id&&x.name===m.name&&!x.note);
-  if(ex)ex.qty++; else t.items.push({id:m.id,name:m.name,en:m.en,price:m.price,qty:1,sent:0,note:""});
-  save(); renderOrder();
+  if(ex)ex.qty++; else t.items.push({id:m.id,name:m.name,en:m.en||"",price:m.price,qty:1,sent:0,note:""});
+  commitTable(cur); renderOrder();
 }
 
 /* modal helpers (no alert/prompt) */
-function modal(html){$("modalBox").innerHTML=html;$("modal").hidden=false}
+function modal(html,lock){$("modalBox").innerHTML=html;$("modalBox").dataset.lock=lock?"1":"";$("modal").hidden=false}
 function closeModal(){$("modal").hidden=true}
-$("modal").onclick=e=>{if(e.target.id==="modal")closeModal()};
+$("modal").onclick=e=>{if(e.target.id==="modal"&&!$("modalBox").dataset.lock)closeModal()};
 function confirmBox(msg,ok){modal(`<h3>${msg}</h3><div class="row"><button id="mNo">아니요</button><button class="primary" id="mYes">예</button></div>`);$("mNo").onclick=closeModal;$("mYes").onclick=()=>{closeModal();ok()}}
-function noteModal(x){
+function noteModal(i){
+  const x=S.tables[cur].items[i]; if(!x)return;
   modal(`<h3>${esc(x.name)} 메모 (주방에 출력됨)</h3><input id="mNote" value="${esc(x.note)}" placeholder="예: 덜 맵게, 계란 추가"><div class="row"><button id="mNo">취소</button><button class="primary" id="mYes">저장</button></div>`);
   $("mNote").focus(); $("mNo").onclick=closeModal;
-  $("mYes").onclick=()=>{const v=$("mNote").value.trim(); if(v!==x.note){x.note=v; x.sent=0;} save(); closeModal(); renderOrder()};
+  $("mYes").onclick=()=>{const t=S.tables[cur]; const y=t&&t.items.find(z=>z.name===x.name&&z.id===x.id&&z.note===x.note)||t&&t.items[i]; const v=$("mNote").value.trim();
+    if(y&&v!==y.note){y.note=v; y.sent=0;} commitTable(cur); closeModal(); renderOrder()};
 }
 
 /* printing */
@@ -299,7 +405,7 @@ function kitchenTicket(){
     <div class="c">${now.toLocaleDateString("ko-KR")} ${now.toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})}</div><hr>
     ${lines.map(x=>`<div class="kit">${x.qty-x.sent} × ${esc(x.name)}</div>${x.en?`<div class="kn">${esc(x.en)}</div>`:""}${x.note?`<div class="kn">↳ ${esc(x.note)}</div>`:""}`).join("")}
     <hr><div class="c">${lines.reduce((a,x)=>a+x.qty-x.sent,0)}개 항목</div></div>`;
-  lines.forEach(x=>x.sent=x.qty); save(); renderOrder(); doPrint(html);
+  lines.forEach(x=>x.sent=x.qty); commitTable(cur); renderOrder(); doPrint(html);
 }
 function receiptHtml(t,id,no,when,paid){
   const c=calc(t); const s=S.settings; const d=new Date(when);
@@ -316,7 +422,7 @@ function receiptHtml(t,id,no,when,paid){
     <hr><div class="c">감사합니다! Thank you!</div></div>`;
 }
 $("btnKitchen").onclick=kitchenTicket;
-$("btnReceipt").onclick=()=>{const t=S.tables[cur]; if(!t.items.length)return; if(!t.no){t.no=S.settings.nextNo++; save()} doPrint(receiptHtml(t,cur,t.no,Date.now(),false))};
+$("btnReceipt").onclick=async()=>{const id=cur; let t=S.tables[id]; if(!t||!t.items.length)return; if(!t.no){const n=await nextReceiptNo(); t=S.tables[id]; if(!t)return; t.no=n; commitTable(id)} doPrint(receiptHtml(t,id,t.no,Date.now(),false))};
 $("btnPaid").onclick=()=>{
   const t=S.tables[cur]; if(!t.items.length)return;
   const warn=t.items.some(x=>x.qty>x.sent)?"<p class='hint'>주방에 아직 안 보낸 메뉴가 있습니다.</p>":"";
@@ -324,12 +430,14 @@ $("btnPaid").onclick=()=>{
     <div class="row"><button id="mNo">취소</button><button id="mCard">카드</button><button id="mCash">현금</button></div>
     <label class="hint"><input type="checkbox" id="mPr" style="width:auto"> 결제 영수증도 출력</label>`);
   $("mNo").onclick=closeModal;
-  const fin=m=>{ if(!t.no)t.no=S.settings.nextNo++; const c=calc(t); const pr=$("mPr").checked;
-    S.sales.push({no:t.no,table:cur,time:Date.now(),method:m,sub:c.sub,tax:c.tax,total:c.total,items:t.items.map(x=>({n:x.name,q:x.qty,p:x.price}))});
-    const html=receiptHtml(t,cur,t.no,Date.now(),true); delete S.tables[cur]; save(); closeModal(); back(); if(pr)doPrint(html); };
+  const fin=async m=>{ const id=cur; const pr=$("mPr").checked; closeModal();
+    let no=S.tables[id]&&S.tables[id].no; if(!no)no=await nextReceiptNo();
+    const tt=S.tables[id]; if(!tt||!tt.items.length)return; const c=calc(tt);
+    addSale({no,table:id,time:Date.now(),method:m,sub:c.sub,tax:c.tax,total:c.total,items:tt.items.map(x=>({n:x.name,q:x.qty,p:x.price}))});
+    const html=receiptHtml(tt,id,no,Date.now(),true); S.tables[id]={items:[]}; commitTable(id); if(cur===id)back(); if(pr)doPrint(html); };
   $("mCard").onclick=()=>fin("카드"); $("mCash").onclick=()=>fin("현금");
 };
-$("btnClear").onclick=()=>confirmBox(`${label(cur)} 주문을 모두 지울까요?`,()=>{delete S.tables[cur];save();back()});
+$("btnClear").onclick=()=>confirmBox(`${label(cur)} 주문을 모두 지울까요?`,()=>{S.tables[cur]={items:[]};commitTable(cur);back()});
 $("btnBack").onclick=back;
 
 /* menu & settings */
@@ -344,14 +452,14 @@ $("btnMenu").onclick=()=>{
    <label class="hint">투고 칸 수<input id="mTogo" value="${s.togo}"></label></div>
   <label class="hint">주소<input id="mAddr" value="${esc(s.addr)}"></label>
   <label class="hint">전화<input id="mPhone" value="${esc(s.phone)}"></label>
-  <div class="row"><button id="mNo">닫기</button><button class="primary" id="mYes">저장</button></div>`);
-  $("mNo").onclick=closeModal;
+  <div class="row">${CLOUD?'<button class="danger" id="mOut" style="margin-right:auto">이 기기 로그아웃</button>':""}<button id="mNo">닫기</button><button class="primary" id="mYes">저장</button></div>`);
+  $("mNo").onclick=closeModal; if(CLOUD)$("mOut").onclick=()=>{closeModal();firebase.auth().signOut()};
   $("mYes").onclick=()=>{S.menuText=$("mMenu").value;
     s.tax=parseFloat($("mTax").value)||0; s.tables=Math.max(1,parseInt($("mTbl").value)||12); s.togo=Math.max(0,parseInt($("mTogo").value)||0);
-    s.addr=$("mAddr").value; s.phone=$("mPhone").value; save(); closeModal(); cur?renderOrder():renderFloor()};
+    s.addr=$("mAddr").value; s.phone=$("mPhone").value; commitSettings(); closeModal(); cur?renderOrder():renderFloor()};
 };
-$("btnSales").onclick=()=>{
-  const today=new Date().toDateString(); const list=S.sales.filter(x=>new Date(x.time).toDateString()===today);
+$("btnSales").onclick=async()=>{
+  const d0=new Date(); d0.setHours(0,0,0,0); const list=await salesSince(d0.getTime());
   const sum=k=>list.reduce((a,x)=>a+x[k],0); const by=m=>list.filter(x=>x.method===m).reduce((a,x)=>a+x.total,0);
   modal(`<h3>오늘 매출 · ${new Date().toLocaleDateString("ko-KR")}</h3>
    <table class="rep num"><tr><td>결제 건수</td><td>${list.length}</td></tr><tr><td>매출 (세전)</td><td>${money(sum("sub"))}</td></tr>
@@ -365,6 +473,7 @@ $("btnSales").onclick=()=>{
 setInterval(()=>$("clock").textContent=new Date().toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"}),1000);
 $("clock").textContent=new Date().toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"});
 renderFloor();
+if(CLOUD)startCloud(); else if(FB_CONFIG){const e=$("sync");e.hidden=false;e.className="sync off";e.textContent="● 공유 연결 안 됨 (새로고침)";}
 </script>
 </body>
 </html>
