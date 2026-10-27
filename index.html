@@ -81,6 +81,7 @@ header.top h1 small{font-weight:500;color:var(--muted);font-size:13px}
 .ln .ctl button{padding:4px 12px;border-radius:8px}
 .pill{font-size:11px;padding:2px 8px;border-radius:99px;border:1px solid currentColor;font-weight:700;letter-spacing:.03em}
 .pill.new{color:var(--busy)} .pill.sent{color:var(--sent)}
+.pill.svc{color:#2E6B45;margin-right:6px} .ctl button.svcOn{border-color:#2E6B45;color:#2E6B45} s.was{opacity:.5;font-weight:400}
 .note{grid-column:1/-1;color:var(--busy);font-size:13px}
 .empty{padding:40px 16px;color:var(--muted);text-align:center}
 .tot{padding:12px 16px;border-top:1px solid var(--line);display:grid;grid-template-columns:1fr auto;gap:4px}
@@ -353,7 +354,17 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",
 const tableIds=()=>[...Array(S.settings.tables)].map((_,i)=>"T"+(i+1)).concat([...Array(S.settings.togo)].map((_,i)=>"TO"+(i+1)));
 const label=id=>id.startsWith("TO")?"투고 "+id.slice(2):"테이블 "+id.slice(1);
 const timeStr=d=>new Date(d).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"});
-function calc(t){const sub=(t?.items||[]).reduce((a,x)=>a+x.price*x.qty,0);const tax=Math.round(sub*S.settings.tax)/100;return{sub,tax,total:sub+tax}}
+const lineAmt=x=>x.svc?0:x.price*x.qty;
+const SVC_LBL=" (서비스)";
+// 서비스(무료) 품목: 손님 금액은 $0, 세금은 원래 가격 기준으로 계산
+function calc(t){const it=t?.items||[];const sub=it.reduce((a,x)=>a+lineAmt(x),0);const svc=it.reduce((a,x)=>a+(x.svc?x.price*x.qty:0),0);const tax=Math.round((sub+svc)*S.settings.tax)/100;return{sub,svc,tax,total:sub+tax}}
+function toggleSvc(t,i){
+  const x=t.items[i]; const want=!x.svc;
+  let y=t.items.find((z,j)=>j!==i&&z.name===x.name&&z.price===x.price&&!z.note&&!x.note&&!!z.svc===want);
+  if(!y){ if(x.qty===1){ x.svc=want; return; } y={...x,qty:0,sent:0,svc:want}; t.items.splice(i+1,0,y); }
+  x.qty--; y.qty++; if(x.sent>x.qty){x.sent--; y.sent++;}
+  if(x.qty<=0) t.items.splice(t.items.indexOf(x),1);
+}
 
 let cur=null, curCat=null;
 
@@ -391,19 +402,20 @@ function renderOrder(){
   t.items.forEach((x,i)=>{
     const d=document.createElement("div"); d.className="ln";
     const st=x.qty>x.sent?`<span class="pill new">주방 미전송 ${x.qty-x.sent}</span>`:`<span class="pill sent">전송됨</span>`;
-    d.innerHTML=`<span class="nm">${esc(x.name)} × <span class="num">${x.qty}</span>${x.en?`<em class="en">${esc(x.en)}</em>`:""}</span><span class="pr num">${money(x.price*x.qty)}</span>
+    d.innerHTML=`<span class="nm">${esc(x.name)} × <span class="num">${x.qty}</span>${x.en?`<em class="en">${esc(x.en)}</em>`:""}</span><span class="pr num">${x.svc?`<s class="was">${money(x.price*x.qty)}</s> `:""}${money(lineAmt(x))}</span>
       ${x.note?`<span class="note">↳ ${esc(x.note)}</span>`:""}
-      <span class="ctl"><button data-a="m">−</button><button data-a="p">+</button><button data-a="n">메모</button><span class="spacer"></span>${st}</span>`;
+      <span class="ctl"><button data-a="m">−</button><button data-a="p">+</button><button data-a="n">메모</button><button data-a="s" class="${x.svc?"svcOn":""}">${x.svc?"서비스 취소":"서비스"}</button><span class="spacer"></span>${x.svc?`<span class="pill svc">서비스 $0</span>`:""}${st}</span>`;
     d.querySelector('[data-a=m]').onclick=()=>{x.qty--; if(x.qty<x.sent)x.sent=x.qty; if(x.qty<=0)t.items.splice(i,1); commitTable(cur); renderOrder()};
     d.querySelector('[data-a=p]').onclick=()=>{x.qty++; commitTable(cur); renderOrder()};
     d.querySelector('[data-a=n]').onclick=()=>noteModal(i);
+    d.querySelector('[data-a=s]').onclick=()=>{toggleSvc(t,i); commitTable(cur); renderOrder()};
     L.appendChild(d);
   });
   const c=calc(t); $("sub").textContent=money(c.sub); $("tax").textContent=money(c.tax); $("taxLbl").textContent=`(${S.settings.tax}%)`; $("total").textContent=money(c.total);
   $("btnKitchen").disabled=!t.items.some(x=>x.qty>x.sent);
 }
 function addItem(m){
-  const t=S.tables[cur]; const ex=t.items.find(x=>x.id===m.id&&x.name===m.name&&!x.note);
+  const t=S.tables[cur]; const ex=t.items.find(x=>x.id===m.id&&x.name===m.name&&!x.note&&!x.svc);
   if(ex)ex.qty++; else t.items.push({id:m.id,name:m.name,en:m.en||"",zh:m.zh||"",price:m.price,qty:1,sent:0,note:""});
   commitTable(cur); renderOrder();
 }
@@ -461,7 +473,7 @@ const BADGE_SVG=`<svg viewBox="24 96 360 300" width="200" height="167" style="di
 function kitchenDoc(id,lines,isAdd,now){
   const d=[{t:label(id),s:58,b:1,a:"c"},{t:isAdd?"*** 추가 주문 ***":"주방 주문서",s:30,b:1,a:"c"},
     {t:now.toLocaleDateString("ko-KR")+" "+now.toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"}),s:24,a:"c"},{hr:1}];
-  lines.forEach(x=>{ d.push({t:(x.qty-x.sent)+" × "+x.name,s:46,b:1,gap:10});
+  lines.forEach(x=>{ d.push({t:(x.qty-x.sent)+" × "+x.name+(x.svc?SVC_LBL:""),s:46,b:1,gap:10});
     if(x.en)d.push({t:x.en,s:28,b:1,ind:34}); if(x.note)d.push({t:"↳ "+x.note,s:32,b:1,ind:34}); });
   d.push({hr:1},{t:lines.reduce((a,x)=>a+x.qty-x.sent,0)+"개 항목",s:24,a:"c"});
   return d;
@@ -470,8 +482,8 @@ function receiptDoc(t,id,no,when,paid){
   const c=calc(t), s=S.settings, dt=new Date(when);
   const d=[{logo:1,size:330,wm:S.settings.watermark!==false},{t:s.addr,s:22,a:"c",gap:6},{t:s.phone,s:22,a:"c"},{hr:1},
     {l:label(id),r:"#"+no,s:26},{l:dt.toLocaleDateString("en-US"),r:dt.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"}),s:26},{hr:1}];
-  t.items.forEach(x=>{ d.push({l:x.qty+" "+x.name,r:money(x.price*x.qty),s:28}); const z=itemZh(x); const sub=[x.en,z].filter(Boolean).join(" · "); if(sub)d.push({t:sub,s:22,ind:26}); });
-  d.push({hr:1},{l:"Subtotal",r:money(c.sub),s:26},{l:"Tax "+s.tax+"%",r:money(c.tax),s:26},{l:"TOTAL",r:money(c.total),s:34,b:1});
+  t.items.forEach(x=>{ d.push({l:x.qty+" "+x.name+(x.svc?SVC_LBL:""),r:money(lineAmt(x)),s:28}); const z=itemZh(x); const sub=[x.en,z].filter(Boolean).join(" · "); if(sub)d.push({t:sub,s:22,ind:26}); });
+  d.push({hr:1},{l:"Subtotal",r:money(c.sub),s:26},...(c.svc?[{l:"Service items (taxable)",r:money(c.svc),s:22}]:[]),{l:"Tax "+s.tax+"%",r:money(c.tax),s:26},{l:"TOTAL",r:money(c.total),s:34,b:1});
   if(paid)d.push({t:"PAID",s:30,b:1,a:"c",gap:8});
   d.push({hr:1},{t:"감사합니다! Thank you! 谢谢!",s:26,a:"c"});
   return d;
@@ -534,7 +546,7 @@ function kitchenTicket(){
     <div class="big">${label(cur)}</div>
     <div class="c b" style="font-size:20px">${isAdd?"*** 추가 주문 ***":"주방 주문서"}</div>
     <div class="c">${now.toLocaleDateString("ko-KR")} ${now.toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})}</div><hr>
-    ${lines.map(x=>`<div class="kit">${x.qty-x.sent} × ${esc(x.name)}</div>${x.en?`<div class="kn">${esc(x.en)}</div>`:""}${x.note?`<div class="kn">↳ ${esc(x.note)}</div>`:""}`).join("")}
+    ${lines.map(x=>`<div class="kit">${x.qty-x.sent} × ${esc(x.name)}${x.svc?SVC_LBL:""}</div>${x.en?`<div class="kn">${esc(x.en)}</div>`:""}${x.note?`<div class="kn">↳ ${esc(x.note)}</div>`:""}`).join("")}
     <hr><div class="c">${lines.reduce((a,x)=>a+x.qty-x.sent,0)}개 항목</div></div>`;
   const doc=kitchenDoc(cur,lines,isAdd,now); const id0=cur; lines.forEach(x=>x.sent=x.qty); commitTable(cur); renderOrder(); sendPrint(doc,html,"kitchen",id0);
 }
@@ -545,8 +557,8 @@ function receiptHtml(t,id,no,when,paid){
     ${BADGE_SVG}${S.settings.watermark!==false?`<div class="wm">${BADGE_SVG}</div>`:""}<div class="c">${esc(s.addr)}</div><div class="c">${esc(s.phone)}</div><hr>
     <div class="r"><span>${label(id)}</span><span>#${no}</span></div>
     <div class="r"><span>${d.toLocaleDateString("en-US")}</span><span>${d.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})}</span></div><hr>
-    ${t.items.map(x=>`<div class="r"><span>${x.qty} ${esc(x.name)}</span><span>${money(x.price*x.qty)}</span></div>${(x.en||itemZh(x))?`<div style="margin:-2px 0 3px 14px">${esc([x.en,itemZh(x)].filter(Boolean).join(" · "))}</div>`:""}`).join("")}<hr>
-    <div class="r"><span>Subtotal</span><span>${money(c.sub)}</span></div>
+    ${t.items.map(x=>`<div class="r"><span>${x.qty} ${esc(x.name)}${x.svc?SVC_LBL:""}</span><span>${money(lineAmt(x))}</span></div>${(x.en||itemZh(x))?`<div style="margin:-2px 0 3px 14px">${esc([x.en,itemZh(x)].filter(Boolean).join(" · "))}</div>`:""}`).join("")}<hr>
+    <div class="r"><span>Subtotal</span><span>${money(c.sub)}</span></div>${c.svc?`<div class="r"><span>Service items (taxable)</span><span>${money(c.svc)}</span></div>`:""}
     <div class="r"><span>Tax ${s.tax}%</span><span>${money(c.tax)}</span></div>
     <div class="r b"><span>TOTAL</span><span>${money(c.total)}</span></div>
     ${paid?`<div class="c b">PAID</div>`:""}
@@ -564,7 +576,7 @@ $("btnPaid").onclick=()=>{
   const fin=async m=>{ const id=cur; const pr=$("mPr").checked; closeModal();
     let no=S.tables[id]&&S.tables[id].no; if(!no)no=await nextReceiptNo();
     const tt=S.tables[id]; if(!tt||!tt.items.length)return; const c=calc(tt);
-    addSale({no,table:id,time:Date.now(),method:m,sub:c.sub,tax:c.tax,total:c.total,items:tt.items.map(x=>{const f=menu().find(y=>y.name===x.name);return {n:x.name,q:x.qty,p:x.price,c:f?f.cat:"기타"}})});
+    addSale({no,table:id,time:Date.now(),method:m,sub:c.sub,tax:c.tax,total:c.total,svc:c.svc,items:tt.items.map(x=>{const f=menu().find(y=>y.name===x.name);return {n:x.name+(x.svc?SVC_LBL:""),q:x.qty,p:x.svc?0:x.price,c:f?f.cat:"기타"}})});
     const w=Date.now(); const html=receiptHtml(tt,id,no,w,true); const rdoc=receiptDoc(tt,id,no,w,true); S.tables[id]={items:[]}; commitTable(id); if(cur===id)back(); if(pr)sendPrint(rdoc,html,"receipt",id); };
   $("mCard").onclick=()=>fin("카드"); $("mCash").onclick=()=>fin("현금");
 };
