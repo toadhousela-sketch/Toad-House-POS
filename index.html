@@ -428,31 +428,36 @@ const BADGE_HEAD="M98 214 Q98 152 158 146 Q200 140 242 146 Q302 152 302 214 Q302
 const BADGE_SMILE="M138 214 Q200 250 262 214";
 const LOGO_FONT="'Black Han Sans','Apple SD Gothic Neo','Noto Sans KR',sans-serif";
 try{ document.fonts&&document.fonts.load("46px 'Black Han Sans'","두꺼비집"); }catch(e){}
+// 영수증 로고: K-1a 기와집 앞 고기 낚는 두꺼비 (흑백, 감열지용)
+const LOGO_AR=300/360, LOGO_VB=[24,96,360,300];
+const LOGO_IMG=new Image(); LOGO_IMG.src="data:image/png;base64,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";
 function drawBadge(ctx,x,y,size){
-  const k=size/400; ctx.save(); ctx.translate(x,y); ctx.scale(k,k);
-  ctx.strokeStyle="#000"; ctx.fillStyle="#000"; ctx.lineCap="round"; ctx.lineJoin="round";
-  ctx.lineWidth=7; ctx.beginPath(); ctx.arc(200,200,194,0,Math.PI*2); ctx.stroke();
-  ctx.lineWidth=3; ctx.beginPath(); ctx.arc(200,200,166,0,Math.PI*2); ctx.stroke();
-  const arcText=(txt,r,size,spacing,top)=>{
-    ctx.font="700 "+size+"px "+TK_FONT; ctx.textAlign="center"; ctx.textBaseline="alphabetic";
-    const ch=[...txt], ws=ch.map(c=>ctx.measureText(c).width+spacing), tot=ws.reduce((a,b)=>a+b,0)-spacing;
-    let a=top?-Math.PI/2-tot/r/2:Math.PI/2+tot/r/2;
-    ch.forEach((c,i)=>{ const half=(ws[i]-spacing)/2/r; a+=top?half:-half;
-      ctx.save(); ctx.translate(200+r*Math.cos(a),200+r*Math.sin(a)); ctx.rotate(top?a+Math.PI/2:a-Math.PI/2); ctx.fillText(c,0,0); ctx.restore();
-      a+=top?(half+spacing/r):-(half+spacing/r); });
-  };
-  arcText("TOAD HOUSE · KOREAN BBQ",174,18,5,true);
-  arcText("BEVERLY BLVD · LOS ANGELES",184,16,6,false);
-  ctx.beginPath(); ctx.arc(34,200,5,0,Math.PI*2); ctx.arc(366,200,5,0,Math.PI*2); ctx.fill();
-  ctx.lineWidth=8; ctx.stroke(new Path2D(BADGE_HEAD));
-  [[152,130],[248,130]].forEach(([cx,cy])=>{ ctx.beginPath(); ctx.arc(cx,cy,32,0,Math.PI*2); ctx.fillStyle="#fff"; ctx.fill(); ctx.stroke(); });
-  ctx.fillStyle="#000"; ctx.beginPath(); ctx.arc(156,134,13,0,Math.PI*2); ctx.arc(244,134,13,0,Math.PI*2); ctx.fill();
-  ctx.stroke(new Path2D(BADGE_SMILE));
-  ctx.beginPath(); ctx.arc(120,226,6,0,Math.PI*2); ctx.arc(280,226,6,0,Math.PI*2); ctx.fill();
-  ctx.font="48px "+LOGO_FONT; ctx.textAlign="center"; ctx.fillText("두꺼비집",200,326);
+  const h=size*LOGO_AR, k=size/LOGO_VB[2];
+  ctx.save();
+  if(LOGO_IMG.complete&&LOGO_IMG.naturalWidth) ctx.drawImage(LOGO_IMG,x,y,size,h);
+  ctx.fillStyle="#000"; ctx.font=Math.round(44*k)+"px "+LOGO_FONT; ctx.textAlign="center"; ctx.textBaseline="alphabetic";
+  ctx.fillText("두꺼비집",x+(200-LOGO_VB[0])*k,y+(378-LOGO_VB[1])*k);
   ctx.restore();
 }
-const BADGE_SVG=`<svg viewBox="0 0 400 400" width="150" height="150" style="display:block;margin:0 auto 4px"><defs><path id="rbT" d="M26 200 A174 174 0 0 1 374 200"/><path id="rbB" d="M16 200 A184 184 0 0 0 384 200"/></defs><circle cx="200" cy="200" r="194" fill="none" stroke="#000" stroke-width="7"/><circle cx="200" cy="200" r="166" fill="none" stroke="#000" stroke-width="3"/><text font-family="Noto Sans KR,sans-serif" font-weight="700" font-size="18" letter-spacing="5"><textPath href="#rbT" startOffset="50%" text-anchor="middle">TOAD HOUSE · KOREAN BBQ</textPath></text><text font-family="Noto Sans KR,sans-serif" font-weight="700" font-size="16" letter-spacing="6"><textPath href="#rbB" startOffset="50%" text-anchor="middle">BEVERLY BLVD · LOS ANGELES</textPath></text><circle cx="34" cy="200" r="5"/><circle cx="366" cy="200" r="5"/><g fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"><path d="${BADGE_HEAD}"/><circle cx="152" cy="130" r="32" fill="#fff"/><circle cx="248" cy="130" r="32" fill="#fff"/><path d="${BADGE_SMILE}"/></g><circle cx="156" cy="134" r="13"/><circle cx="244" cy="134" r="13"/><circle cx="120" cy="226" r="6"/><circle cx="280" cy="226" r="6"/><text x="200" y="326" text-anchor="middle" font-family="Black Han Sans,sans-serif" font-size="48">두꺼비집</text></svg>`;
+const BADGE_SVG=`<svg viewBox="24 96 360 300" width="200" height="167" style="display:block;margin:0 auto 4px"><g transform="translate(150 123) scale(.62)"><path d="M40 150 Q90 148 128 120 Q170 92 200 70 Q230 92 272 120 Q310 148 360 150 Q350 166 320 168 L80 168 Q50 166 40 150 Z" fill="#000"></path><g stroke="#fff" stroke-width="3" opacity=".5"><line x1="140" y1="122" x2="138" y2="160"></line><line x1="170" y1="102" x2="170" y2="160"></line><line x1="200" y1="84" x2="200" y2="160"></line><line x1="230" y1="102" x2="230" y2="160"></line><line x1="260" y1="122" x2="262" y2="160"></line></g>
+<rect x="96" y="168" width="208" height="150" fill="#fff" stroke="#000" stroke-width="6"></rect>
+<rect x="140" y="194" width="120" height="124" fill="#fff" stroke="#000" stroke-width="6"></rect>
+<line x1="200" y1="194" x2="200" y2="318" stroke="#000" stroke-width="4"></line>
+<line x1="330" y1="166" x2="330" y2="186" stroke="#000" stroke-width="3"></line>
+<ellipse cx="330" cy="204" rx="16" ry="20" fill="#000"></ellipse>
+<rect x="322" y="182" width="16" height="5" fill="#000"></rect><rect x="322" y="221" width="16" height="5" fill="#000"></rect></g><g transform="translate(240 140) scale(-.6 .6)"><path d="M292 236 Q330 232 318 176" fill="none" stroke="#000" stroke-width="10" stroke-linecap="round"></path>
+<g transform="rotate(-18 318 152)"><rect x="288" y="136" width="62" height="32" rx="5" fill="#fff" stroke="#000" stroke-width="4"></rect><rect x="290" y="144" width="58" height="5" fill="#000"></rect><rect x="290" y="156" width="58" height="5" fill="#000"></rect></g>
+<g stroke="#000" stroke-width="4" stroke-linecap="round"><line x1="282" y1="116" x2="272" y2="104"></line><line x1="312" y1="106" x2="310" y2="90"></line><line x1="344" y1="114" x2="352" y2="102"></line></g>
+<g fill="#fff" stroke="#000" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+<path d="M86 298 Q70 222 138 194 Q190 174 236 184 Q288 196 300 236 Q292 266 254 274 L248 298 Z"></path>
+<path d="M96 298 Q104 256 150 262 Q170 282 156 298 Z"></path>
+<path d="M232 270 L238 298 M238 298 L226 300 M238 298 L250 300"></path>
+<circle cx="226" cy="170" r="28"></circle>
+<path d="M248 240 Q276 246 298 236" fill="none"></path>
+</g>
+<circle cx="233" cy="172" r="11" fill="#000"></circle>
+<g fill="#000"><circle cx="118" cy="230" r="4"></circle><circle cx="150" cy="212" r="4"></circle><circle cx="182" cy="230" r="4"></circle></g></g>
+<line x1="34" y1="320" x2="372" y2="320" stroke="#000" stroke-width="6" stroke-linecap="round"></line><text x="200" y="378" text-anchor="middle" font-family="Black Han Sans,sans-serif" font-size="44">두꺼비집</text></svg>`;
 function kitchenDoc(id,lines,isAdd,now){
   const d=[{t:label(id),s:58,b:1,a:"c"},{t:isAdd?"*** 추가 주문 ***":"주방 주문서",s:30,b:1,a:"c"},
     {t:now.toLocaleDateString("ko-KR")+" "+now.toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"}),s:24,a:"c"},{hr:1}];
@@ -463,7 +468,7 @@ function kitchenDoc(id,lines,isAdd,now){
 }
 function receiptDoc(t,id,no,when,paid){
   const c=calc(t), s=S.settings, dt=new Date(when);
-  const d=[{logo:1,size:240,wm:S.settings.watermark!==false},{t:s.addr,s:22,a:"c",gap:6},{t:s.phone,s:22,a:"c"},{hr:1},
+  const d=[{logo:1,size:330,wm:S.settings.watermark!==false},{t:s.addr,s:22,a:"c",gap:6},{t:s.phone,s:22,a:"c"},{hr:1},
     {l:label(id),r:"#"+no,s:26},{l:dt.toLocaleDateString("en-US"),r:dt.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"}),s:26},{hr:1}];
   t.items.forEach(x=>{ d.push({l:x.qty+" "+x.name,r:money(x.price*x.qty),s:28}); const z=itemZh(x); const sub=[x.en,z].filter(Boolean).join(" · "); if(sub)d.push({t:sub,s:22,ind:26}); });
   d.push({hr:1},{l:"Subtotal",r:money(c.sub),s:26},{l:"Tax "+s.tax+"%",r:money(c.tax),s:26},{l:"TOTAL",r:money(c.total),s:34,b:1});
@@ -482,7 +487,7 @@ function docToPNG(doc){
   const ops=[]; let y=P, wmTop=-1;
   doc.forEach(o=>{
     if(o.hr){ ops.push({hr:1,y:y+10}); y+=22; return; }
-    if(o.logo){ ops.push({logo:1,y:y+4,size:o.size}); y+=o.size+12; if(o.wm)wmTop=y; return; }
+    if(o.logo){ ops.push({logo:1,y:y+4,size:o.size}); y+=Math.round(o.size*LOGO_AR)+12; if(o.wm)wmTop=y; return; }
     y+=o.gap||0; ctx.font=font(o); const lh=Math.round(o.s*1.28);
     if(o.l!==undefined){ const rw=ctx.measureText(o.r).width; const ls=wrap(o.l,W-2*P-rw-16);
       ls.forEach((ln,i)=>{ ops.push({o,x:P,y,txt:ln,al:"left"}); if(i===0)ops.push({o,x:W-P,y,txt:o.r,al:"right"}); y+=lh; }); return; }
@@ -495,7 +500,7 @@ function docToPNG(doc){
   const im=ctx.getImageData(0,0,cv.width,cv.height), px=im.data;
   for(let i=0;i<px.length;i+=4){ const v=(px[i]+px[i+1]+px[i+2])/3<150?0:255; px[i]=px[i+1]=px[i+2]=v; px[i+3]=255; }
   if(wmTop>=0){ // faint emblem behind the text: sparse dots so a 1-bit thermal printer prints it as light gray
-    const sz=Math.min(W-40,440), wy=Math.round(Math.max(wmTop, wmTop+(cv.height-30-wmTop-sz)/2));
+    const sz=Math.min(W-40,440), wy=Math.round(Math.max(wmTop, wmTop+(cv.height-30-wmTop-sz*LOGO_AR)/2));
     const wc=document.createElement("canvas"); wc.width=sz; wc.height=sz; const wx=wc.getContext("2d");
     wx.fillStyle="#fff"; wx.fillRect(0,0,sz,sz); drawBadge(wx,0,0,sz);
     const wd=wx.getImageData(0,0,sz,sz).data, ox=Math.round((W-sz)/2);
