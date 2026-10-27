@@ -41,6 +41,8 @@ header.top h1 small{font-weight:500;color:var(--muted);font-size:13px}
 .clock{color:var(--muted)}
 .sync{font-size:13px;font-weight:700}
 .sync.on{color:var(--sent)} .sync.off{color:var(--danger)}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:10px;font-weight:700;z-index:40;max-width:calc(100% - 32px)}
+.toast.bad{background:var(--danger);color:#fff}
 
 /* floor */
 #floor{padding:16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px;max-width:1200px;margin:0 auto}
@@ -97,6 +99,17 @@ header.top h1 small{font-weight:500;color:var(--muted);font-size:13px}
 table.rep{width:100%;border-collapse:collapse}
 table.rep td{padding:6px 4px;border-bottom:1px solid var(--line)}
 table.rep td:last-child{text-align:right}
+table.rep td.q{text-align:right;width:56px;color:var(--muted)}
+table.rep tr.cat td{font-weight:700;background:var(--bg);padding-top:10px}
+.seg{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.seg button{padding:6px 12px;border-radius:8px}
+.seg button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}
+.kpi{border:1px solid var(--line);border-radius:10px;padding:10px}
+.kpi span{display:block;font-size:12px;color:var(--muted)}
+.kpi b{font-size:20px}
+.box h4{margin:6px 0 0;font-size:15px}
+.sub{font-size:12px;color:var(--muted)}
 
 @media (max-width:700px){
   #order{grid-template-columns:1fr;height:auto}
@@ -127,9 +140,10 @@ table.rep td:last-child{text-align:right}
 <header class="top">
   <h1>🐸 두꺼비집 <small>Toad House POS</small></h1>
   <span class="spacer"></span>
+  <span class="sync" id="prn" hidden></span>
   <span class="sync" id="sync" hidden></span>
   <span class="clock num" id="clock"></span>
-  <button class="ghost" id="btnSales">오늘 매출</button>
+  <button class="ghost" id="btnSales">매출 보기</button>
   <button class="ghost" id="btnMenu">메뉴/설정</button>
 </header>
 
@@ -258,6 +272,13 @@ function addSale(sale){
   if(CLOUD&&db){ db.ref("pos/sales").push(clean(sale)); }
   else { S.sales.push(sale); saveLocal(); }
 }
+async function salesBetween(a,b){
+  if(CLOUD&&db){
+    const snap=await db.ref("pos/sales").orderByChild("time").startAt(a).endAt(b-1).once("value");
+    const out=[]; snap.forEach(c=>{out.push(c.val())}); return out;
+  }
+  return S.sales.filter(x=>x.time>=a&&x.time<b);
+}
 async function salesSince(ts){
   if(CLOUD&&db){
     const snap=await db.ref("pos/sales").orderByChild("time").startAt(ts).once("value");
@@ -280,6 +301,7 @@ function startCloud(){
     if(!u){ loginScreen(); return; }
     closeModal();
     db.ref(".info/connected").on("value",s=>setStatus(!!s.val()));
+    db.ref("pos/printer/lastSeen").on("value",s=>{printerSeen=s.val()||0; printerStatus();});
     // first device to connect seeds the shared menu & settings from this device
     db.ref("pos/settings").once("value").then(s=>{ if(!s.exists()){ commitSettings(); db.ref("pos/nextNo").set(S.settings.nextNo||1001); } });
     db.ref("pos/settings").on("value",s=>{ if(s.exists()){ S.settings=defaults({settings:s.val()}).settings; refresh(); } });
@@ -317,7 +339,9 @@ function loginScreen(mode){
   if(create)$("lgBack").onclick=()=>loginScreen(); else $("lgNew").onclick=()=>loginScreen("create");
 }
 
-const menu=()=>S.menuText.split("\n").map(l=>l.trim()).filter(l=>l&&!l.startsWith("#")).map((l,i)=>{const[c,n,p,e]=l.split("|").map(x=>(x||"").trim());return{id:i,cat:c||"기타",name:n||c,price:parseFloat(p)||0,en:e||""}});
+const menu=()=>S.menuText.split("\n").map(l=>l.trim()).filter(l=>l&&!l.startsWith("#")).map((l,i)=>{const[c,n,p,e,z]=l.split("|").map(x=>(x||"").trim());return{id:i,cat:c||"기타",name:n||c,price:parseFloat(p)||0,en:e||"",zh:z||zhOf(n||c)}});
+const ZH={"두꺼비 삼겹살": "黑猪五花肉", "두꺼비 항정살": "猪颊肉", "두꺼비 목살": "猪梅花肉", "두꺼비 껍데기": "猪皮", "두꺼비 차돌": "牛胸肉", "두꺼비 주물럭": "调味牛排骨", "육회": "生拌牛肉", "해물파전": "海鲜葱饼", "오징어볶음": "辣炒鱿鱼", "골뱅이무침": "凉拌海螺", "돼지불고기": "韩式烤猪肉", "양념두부": "调味豆腐", "비빔국수": "拌面", "김치전": "泡菜饼", "계란 후라이": "煎蛋", "고추장찌개": "辣椒酱汤", "김치찌개": "泡菜汤", "된장찌개": "大酱汤", "동태매운탕": "辣鳕鱼汤", "계란찜": "蒸蛋", "볶음밥": "炒饭", "새로": "烧酒", "처음처럼": "烧酒", "참이슬": "烧酒", "이즈백": "烧酒", "국순당 생막걸리": "米酒", "백세주": "百岁酒", "명작 복분자": "覆盆子酒", "크러쉬": "啤酒 克拉什", "클라우드": "啤酒 克劳德", "카스": "啤酒 凯狮", "테라": "啤酒 泰拉", "코카콜라": "可乐", "코크 제로": "零度可乐", "다이어트 코크": "健怡可乐", "세븐업": "七喜"};
+const zhOf=n=>{const b=String(n).replace(/\s*\((1|2)인\)$/,"");const z=ZH[b];if(!z)return "";const m=String(n).match(/\((1|2)인\)$/);return m?z+"("+m[1]+"人)":z};
 const CAT_EN={"구이류":"Grilled","안주류":"Entrees","식사류":"Soups & Rice","소주/전통주":"Soju & Rice Wine","맥주":"Beer","음료":"Soft Drinks"};
 const $=id=>document.getElementById(id);
 const money=n=>"$"+(Math.round(n*100)/100).toFixed(2);
@@ -376,7 +400,7 @@ function renderOrder(){
 }
 function addItem(m){
   const t=S.tables[cur]; const ex=t.items.find(x=>x.id===m.id&&x.name===m.name&&!x.note);
-  if(ex)ex.qty++; else t.items.push({id:m.id,name:m.name,en:m.en||"",price:m.price,qty:1,sent:0,note:""});
+  if(ex)ex.qty++; else t.items.push({id:m.id,name:m.name,en:m.en||"",zh:m.zh||"",price:m.price,qty:1,sent:0,note:""});
   commitTable(cur); renderOrder();
 }
 
@@ -394,6 +418,67 @@ function noteModal(i){
 }
 
 /* printing */
+/* ---- 주방 프린터 자동 출력 (Star CloudPRNT) ---- */
+const TK_FONT="'Apple SD Gothic Neo','PingFang SC','Hiragino Sans GB','Noto Sans KR','Noto Sans SC','Malgun Gothic',system-ui,sans-serif";
+function kitchenDoc(id,lines,isAdd,now){
+  const d=[{t:label(id),s:58,b:1,a:"c"},{t:isAdd?"*** 추가 주문 ***":"주방 주문서",s:30,b:1,a:"c"},
+    {t:now.toLocaleDateString("ko-KR")+" "+now.toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"}),s:24,a:"c"},{hr:1}];
+  lines.forEach(x=>{ d.push({t:(x.qty-x.sent)+" × "+x.name,s:46,b:1,gap:10});
+    if(x.en)d.push({t:x.en,s:28,b:1,ind:34}); if(x.note)d.push({t:"↳ "+x.note,s:32,b:1,ind:34}); });
+  d.push({hr:1},{t:lines.reduce((a,x)=>a+x.qty-x.sent,0)+"개 항목",s:24,a:"c"});
+  return d;
+}
+function receiptDoc(t,id,no,when,paid){
+  const c=calc(t), s=S.settings, dt=new Date(when);
+  const d=[{t:"두꺼비집",s:46,b:1,a:"c"},{t:s.name+" · Korean BBQ",s:24,a:"c"},{t:s.addr,s:22,a:"c"},{t:s.phone,s:22,a:"c"},{hr:1},
+    {l:label(id),r:"#"+no,s:26},{l:dt.toLocaleDateString("en-US"),r:dt.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"}),s:26},{hr:1}];
+  t.items.forEach(x=>{ d.push({l:x.qty+" "+x.name,r:money(x.price*x.qty),s:28}); const z=itemZh(x); const sub=[x.en,z].filter(Boolean).join(" · "); if(sub)d.push({t:sub,s:22,ind:26}); });
+  d.push({hr:1},{l:"Subtotal",r:money(c.sub),s:26},{l:"Tax "+s.tax+"%",r:money(c.tax),s:26},{l:"TOTAL",r:money(c.total),s:34,b:1});
+  if(paid)d.push({t:"PAID",s:30,b:1,a:"c",gap:8});
+  else { d.push({hr:1},{t:"Tip Guide (pre-tax)",s:22,a:"c"}); [18,20,22].forEach(p=>d.push({l:p+"%",r:money(c.sub*p/100),s:24})); }
+  d.push({hr:1},{t:"감사합니다! Thank you! 谢谢!",s:26,a:"c"});
+  return d;
+}
+function docToPNG(doc){
+  const W=576, P=6, cv=document.createElement("canvas"), ctx=cv.getContext("2d");
+  const font=o=>`${o.b?"700":"400"} ${o.s}px ${TK_FONT}`;
+  const wrap=(text,maxW)=>{ const out=[]; let line="";
+    for(const ch of String(text)){ const tryL=line+ch; if(ctx.measureText(tryL).width>maxW&&line){ out.push(line); line=ch.trimStart(); } else line=tryL; }
+    if(line||!out.length)out.push(line); return out; };
+  // layout
+  const ops=[]; let y=P;
+  doc.forEach(o=>{
+    if(o.hr){ ops.push({hr:1,y:y+10}); y+=22; return; }
+    y+=o.gap||0; ctx.font=font(o); const lh=Math.round(o.s*1.28);
+    if(o.l!==undefined){ const rw=ctx.measureText(o.r).width; const ls=wrap(o.l,W-2*P-rw-16);
+      ls.forEach((ln,i)=>{ ops.push({o,x:P,y,txt:ln,al:"left"}); if(i===0)ops.push({o,x:W-P,y,txt:o.r,al:"right"}); y+=lh; }); return; }
+    const ind=o.ind||0; wrap(o.t,W-2*P-ind).forEach(ln=>{ ops.push({o,x:o.a==="c"?W/2:P+ind,y,txt:ln,al:o.a==="c"?"center":"left"}); y+=lh; });
+  });
+  cv.width=W; cv.height=Math.ceil(y+30);
+  ctx.fillStyle="#fff"; ctx.fillRect(0,0,cv.width,cv.height); ctx.fillStyle="#000"; ctx.textBaseline="top";
+  ops.forEach(op=>{ if(op.hr){ for(let x=P;x<W-P;x+=12)ctx.fillRect(x,op.y,7,2); return; }
+    ctx.font=font(op.o); ctx.textAlign=op.al; ctx.fillText(op.txt,op.x,op.y); });
+  const im=ctx.getImageData(0,0,cv.width,cv.height), px=im.data;
+  for(let i=0;i<px.length;i+=4){ const v=(px[i]+px[i+1]+px[i+2])/3<150?0:255; px[i]=px[i+1]=px[i+2]=v; px[i+3]=255; }
+  ctx.putImageData(im,0,0);
+  return cv.toDataURL("image/png").split(",")[1];
+}
+const useCloudPrint=()=>CLOUD&&db&&(S.settings.printMode||"cloud")==="cloud";
+function toast(msg,bad){ let el=$("toast"); if(!el){el=document.createElement("div");el.id="toast";document.body.appendChild(el);}
+  el.textContent=msg; el.className="toast"+(bad?" bad":""); el.hidden=false; clearTimeout(toast.t); toast.t=setTimeout(()=>el.hidden=true,2600); }
+function sendPrint(doc,html,kind,id){
+  if(!useCloudPrint()){ doPrint(html); return; }
+  let png; try{ png=docToPNG(doc); }catch(e){ doPrint(html); return; }
+  db.ref("pos/printQueue").push({png,kind,table:id,created:Date.now()})
+    .then(()=>{ if(printerOnline())toast(kind==="kitchen"?"주방 프린터로 보냈습니다":"영수증을 프린터로 보냈습니다");
+      else toast("프린터가 꺼져 있는 것 같습니다. 켜지면 자동으로 출력됩니다.",true); })
+    .catch(()=>{ toast("프린터로 보내지 못했습니다. 인쇄 창으로 출력합니다.",true); doPrint(html); });
+}
+let printerSeen=0;
+const printerOnline=()=>Date.now()-printerSeen<60000;
+function printerStatus(){ const el=$("prn"); if(!el)return; el.hidden=!useCloudPrint();
+  el.className="sync "+(printerOnline()?"on":"off"); el.textContent=printerOnline()?"🖨 프린터 연결됨":"🖨 프린터 꺼짐"; }
+setInterval(printerStatus,10000);
 function doPrint(html){$("printArea").innerHTML=html; setTimeout(()=>window.print(),50)}
 function kitchenTicket(){
   const t=S.tables[cur]; const now=new Date();
@@ -405,8 +490,9 @@ function kitchenTicket(){
     <div class="c">${now.toLocaleDateString("ko-KR")} ${now.toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})}</div><hr>
     ${lines.map(x=>`<div class="kit">${x.qty-x.sent} × ${esc(x.name)}</div>${x.en?`<div class="kn">${esc(x.en)}</div>`:""}${x.note?`<div class="kn">↳ ${esc(x.note)}</div>`:""}`).join("")}
     <hr><div class="c">${lines.reduce((a,x)=>a+x.qty-x.sent,0)}개 항목</div></div>`;
-  lines.forEach(x=>x.sent=x.qty); commitTable(cur); renderOrder(); doPrint(html);
+  const doc=kitchenDoc(cur,lines,isAdd,now); const id0=cur; lines.forEach(x=>x.sent=x.qty); commitTable(cur); renderOrder(); sendPrint(doc,html,"kitchen",id0);
 }
+function itemZh(x){ if(x.zh)return x.zh; const f=menu().find(y=>y.name===x.name); return f?f.zh:zhOf(x.name); }
 function receiptHtml(t,id,no,when,paid){
   const c=calc(t); const s=S.settings; const d=new Date(when);
   const tips=[18,20,22].map(p=>`<div class="r"><span>${p}%</span><span>${money(c.sub*p/100)}</span></div>`).join("");
@@ -414,15 +500,15 @@ function receiptHtml(t,id,no,when,paid){
     <h1>두꺼비집</h1><div class="c">${esc(s.name)} · Korean BBQ</div><div class="c">${esc(s.addr)}</div><div class="c">${esc(s.phone)}</div><hr>
     <div class="r"><span>${label(id)}</span><span>#${no}</span></div>
     <div class="r"><span>${d.toLocaleDateString("en-US")}</span><span>${d.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})}</span></div><hr>
-    ${t.items.map(x=>`<div class="r"><span>${x.qty} ${esc(x.name)}</span><span>${money(x.price*x.qty)}</span></div>${x.en?`<div style="margin:-2px 0 3px 14px">${esc(x.en)}</div>`:""}`).join("")}<hr>
+    ${t.items.map(x=>`<div class="r"><span>${x.qty} ${esc(x.name)}</span><span>${money(x.price*x.qty)}</span></div>${(x.en||itemZh(x))?`<div style="margin:-2px 0 3px 14px">${esc([x.en,itemZh(x)].filter(Boolean).join(" · "))}</div>`:""}`).join("")}<hr>
     <div class="r"><span>Subtotal</span><span>${money(c.sub)}</span></div>
     <div class="r"><span>Tax ${s.tax}%</span><span>${money(c.tax)}</span></div>
     <div class="r b"><span>TOTAL</span><span>${money(c.total)}</span></div>
     ${paid?`<div class="c b">PAID</div>`:`<hr><div class="c">Tip Guide (pre-tax)</div>${tips}`}
-    <hr><div class="c">감사합니다! Thank you!</div></div>`;
+    <hr><div class="c">감사합니다! Thank you! 谢谢!</div></div>`;
 }
 $("btnKitchen").onclick=kitchenTicket;
-$("btnReceipt").onclick=async()=>{const id=cur; let t=S.tables[id]; if(!t||!t.items.length)return; if(!t.no){const n=await nextReceiptNo(); t=S.tables[id]; if(!t)return; t.no=n; commitTable(id)} doPrint(receiptHtml(t,id,t.no,Date.now(),false))};
+$("btnReceipt").onclick=async()=>{const id=cur; let t=S.tables[id]; if(!t||!t.items.length)return; if(!t.no){const n=await nextReceiptNo(); t=S.tables[id]; if(!t)return; t.no=n; commitTable(id)} const w=Date.now(); sendPrint(receiptDoc(t,id,t.no,w,false),receiptHtml(t,id,t.no,w,false),"receipt",id)};
 $("btnPaid").onclick=()=>{
   const t=S.tables[cur]; if(!t.items.length)return;
   const warn=t.items.some(x=>x.qty>x.sent)?"<p class='hint'>주방에 아직 안 보낸 메뉴가 있습니다.</p>":"";
@@ -433,8 +519,8 @@ $("btnPaid").onclick=()=>{
   const fin=async m=>{ const id=cur; const pr=$("mPr").checked; closeModal();
     let no=S.tables[id]&&S.tables[id].no; if(!no)no=await nextReceiptNo();
     const tt=S.tables[id]; if(!tt||!tt.items.length)return; const c=calc(tt);
-    addSale({no,table:id,time:Date.now(),method:m,sub:c.sub,tax:c.tax,total:c.total,items:tt.items.map(x=>({n:x.name,q:x.qty,p:x.price}))});
-    const html=receiptHtml(tt,id,no,Date.now(),true); S.tables[id]={items:[]}; commitTable(id); if(cur===id)back(); if(pr)doPrint(html); };
+    addSale({no,table:id,time:Date.now(),method:m,sub:c.sub,tax:c.tax,total:c.total,items:tt.items.map(x=>{const f=menu().find(y=>y.name===x.name);return {n:x.name,q:x.qty,p:x.price,c:f?f.cat:"기타"}})});
+    const w=Date.now(); const html=receiptHtml(tt,id,no,w,true); const rdoc=receiptDoc(tt,id,no,w,true); S.tables[id]={items:[]}; commitTable(id); if(cur===id)back(); if(pr)sendPrint(rdoc,html,"receipt",id); };
   $("mCard").onclick=()=>fin("카드"); $("mCash").onclick=()=>fin("현금");
 };
 $("btnClear").onclick=()=>confirmBox(`${label(cur)} 주문을 모두 지울까요?`,()=>{S.tables[cur]={items:[]};commitTable(cur);back()});
@@ -444,31 +530,83 @@ $("btnBack").onclick=back;
 $("btnMenu").onclick=()=>{
   const s=S.settings;
   modal(`<h3>메뉴 / 설정</h3>
-  <p class="hint">한 줄에 하나씩 <b>카테고리 | 메뉴 이름 | 가격</b> 형식으로 입력하세요. # 으로 시작하는 줄은 무시됩니다.</p>
+  <p class="hint">한 줄에 하나씩 <b>카테고리 | 메뉴 이름 | 가격 | 영어 | 중국어</b> 형식으로 (영어·중국어는 생략 가능) 입력하세요. # 으로 시작하는 줄은 무시됩니다.</p>
   <textarea id="mMenu">${esc(S.menuText)}</textarea>
   <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
    <label class="hint">세율 %<input id="mTax" value="${s.tax}"></label>
    <label class="hint">테이블 수<input id="mTbl" value="${s.tables}"></label>
    <label class="hint">투고 칸 수<input id="mTogo" value="${s.togo}"></label></div>
+  ${CLOUD?`<label class="hint">출력 방식<select id="mPm" style="width:100%;font:inherit;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)"><option value="cloud" ${(s.printMode||"cloud")==="cloud"?"selected":""}>주방 프린터로 자동 출력 (Star CloudPRNT)</option><option value="dialog" ${s.printMode==="dialog"?"selected":""}>인쇄 창 열기 (AirPrint)</option></select></label>`:""}
   <label class="hint">주소<input id="mAddr" value="${esc(s.addr)}"></label>
   <label class="hint">전화<input id="mPhone" value="${esc(s.phone)}"></label>
   <div class="row">${CLOUD?'<button class="danger" id="mOut" style="margin-right:auto">이 기기 로그아웃</button>':""}<button id="mNo">닫기</button><button class="primary" id="mYes">저장</button></div>`);
   $("mNo").onclick=closeModal; if(CLOUD)$("mOut").onclick=()=>{closeModal();firebase.auth().signOut()};
   $("mYes").onclick=()=>{S.menuText=$("mMenu").value;
     s.tax=parseFloat($("mTax").value)||0; s.tables=Math.max(1,parseInt($("mTbl").value)||12); s.togo=Math.max(0,parseInt($("mTogo").value)||0);
-    s.addr=$("mAddr").value; s.phone=$("mPhone").value; commitSettings(); closeModal(); cur?renderOrder():renderFloor()};
+    s.addr=$("mAddr").value; s.phone=$("mPhone").value; if($("mPm"))s.printMode=$("mPm").value; commitSettings(); printerStatus(); closeModal(); cur?renderOrder():renderFloor()};
 };
-$("btnSales").onclick=async()=>{
-  const d0=new Date(); d0.setHours(0,0,0,0); const list=await salesSince(d0.getTime());
-  const sum=k=>list.reduce((a,x)=>a+x[k],0); const by=m=>list.filter(x=>x.method===m).reduce((a,x)=>a+x.total,0);
-  modal(`<h3>오늘 매출 · ${new Date().toLocaleDateString("ko-KR")}</h3>
-   <table class="rep num"><tr><td>결제 건수</td><td>${list.length}</td></tr><tr><td>매출 (세전)</td><td>${money(sum("sub"))}</td></tr>
-   <tr><td>세금</td><td>${money(sum("tax"))}</td></tr><tr><td><b>합계</b></td><td><b>${money(sum("total"))}</b></td></tr>
-   <tr><td>카드</td><td>${money(by("카드"))}</td></tr><tr><td>현금</td><td>${money(by("현금"))}</td></tr></table>
-   <table class="rep num">${list.slice().reverse().map(x=>`<tr><td>#${x.no} ${label(x.table)} · ${timeStr(x.time)} · ${x.method}</td><td>${money(x.total)}</td></tr>`).join("")||"<tr><td class='hint'>아직 결제된 건이 없습니다.</td><td></td></tr>"}</table>
+let RP={mode:"day",anchor:null};
+function periodRange(mode,anchor){
+  const a=new Date(anchor); a.setHours(0,0,0,0); let b;
+  if(mode==="week"){ const dow=(a.getDay()+6)%7; a.setDate(a.getDate()-dow); b=new Date(a); b.setDate(b.getDate()+7); }
+  else if(mode==="month"){ a.setDate(1); b=new Date(a); b.setMonth(b.getMonth()+1); }
+  else { b=new Date(a); b.setDate(b.getDate()+1); }
+  return [a,b];
+}
+function periodLabel(mode,a,b){
+  const f=d=>d.toLocaleDateString("ko-KR",{month:"long",day:"numeric",weekday:"short"});
+  if(mode==="month")return a.toLocaleDateString("ko-KR",{year:"numeric",month:"long"});
+  if(mode==="week"){const e=new Date(b);e.setDate(e.getDate()-1);return f(a)+" – "+f(e);}
+  return a.toLocaleDateString("ko-KR",{year:"numeric",month:"long",day:"numeric",weekday:"short"});
+}
+async function showReport(){
+  if(!RP.anchor)RP.anchor=Date.now();
+  const [a,b]=periodRange(RP.mode,RP.anchor);
+  modal(`<h3>매출 보기</h3><p class="hint">불러오는 중…</p>`);
+  let list;
+  try{ list=(await salesBetween(a.getTime(),b.getTime())).sort((x,y)=>x.time-y.time); }
+  catch(e){ modal(`<h3>매출 보기</h3><p class="hint" style="color:var(--danger)">매출을 불러오지 못했습니다. 인터넷 연결을 확인하고 다시 열어 주세요.</p><div class="row"><button id="mNo">닫기</button></div>`); $("mNo").onclick=closeModal; return; }
+  const sum=k=>list.reduce((t,x)=>t+(x[k]||0),0);
+  const by=m=>list.filter(x=>x.method===m).reduce((t,x)=>t+x.total,0);
+  // menu breakdown
+  const cats=menu().map(x=>x.cat); const catOrder=[...new Set(cats)];
+  const agg={};
+  list.forEach(sale=>(sale.items||[]).forEach(it=>{
+    const c=it.c||(menu().find(y=>y.name===it.n)||{}).cat||"기타";
+    const k=c+"|"+it.n; agg[k]=agg[k]||{c,n:it.n,q:0,amt:0}; agg[k].q+=it.q; agg[k].amt+=it.q*it.p;
+  }));
+  const rows=Object.values(agg);
+  const groups=[...catOrder,...new Set(rows.map(r=>r.c).filter(c=>!catOrder.includes(c)))].map(c=>{
+    const rs=rows.filter(r=>r.c===c).sort((x,y)=>y.q-x.q||y.amt-x.amt);
+    return {c,rs,q:rs.reduce((t,r)=>t+r.q,0),amt:rs.reduce((t,r)=>t+r.amt,0)};
+  }).filter(g=>g.rs.length);
+  const top=rows.slice().sort((x,y)=>y.q-x.q).slice(0,3);
+  const menuTable=groups.length?`<table class="rep num">${groups.map(g=>`<tr class="cat"><td>${esc(g.c)}</td><td class="q">${g.q}개</td><td>${money(g.amt)}</td></tr>`+
+     g.rs.map(r=>`<tr><td>${esc(r.n)}</td><td class="q">${r.q}</td><td>${money(r.amt)}</td></tr>`).join("")).join("")}</table>`:"<p class='hint'>이 기간에 판매된 메뉴가 없습니다.</p>";
+  const multiDay=RP.mode!=="day";
+  const txTable=list.length?`<table class="rep num">${list.slice().reverse().map(x=>`<tr><td>#${x.no} ${label(x.table)} · ${multiDay?new Date(x.time).toLocaleDateString("ko-KR",{month:"numeric",day:"numeric"})+" ":""}${timeStr(x.time)} · ${x.method}
+      <div class="sub">${(x.items||[]).map(i=>esc(i.n)+" ×"+i.q).join(", ")}</div></td><td>${money(x.total)}</td></tr>`).join("")}</table>`:"<p class='hint'>결제된 건이 없습니다.</p>";
+  modal(`<h3>매출 보기</h3>
+   <div class="seg">${[["day","하루"],["week","주"],["month","월"]].map(([m,l])=>`<button data-m="${m}" class="${RP.mode===m?"on":""}">${l}</button>`).join("")}
+     <span class="spacer"></span><button id="rpPrev">◀</button><button id="rpToday">오늘</button><button id="rpNext">▶</button></div>
+   <h4>${periodLabel(RP.mode,a,b)}</h4>
+   <div class="kpis">
+     <div class="kpi"><span>합계 (세금 포함)</span><b class="num">${money(sum("total"))}</b></div>
+     <div class="kpi"><span>매출 (세전)</span><b class="num">${money(sum("sub"))}</b></div>
+     <div class="kpi"><span>결제 건수</span><b class="num">${list.length}</b></div>
+     <div class="kpi"><span>평균 결제액</span><b class="num">${money(list.length?sum("total")/list.length:0)}</b></div>
+   </div>
+   <table class="rep num"><tr><td>카드</td><td>${money(by("카드"))}</td></tr><tr><td>현금</td><td>${money(by("현금"))}</td></tr><tr><td>세금</td><td>${money(sum("tax"))}</td></tr></table>
+   ${top.length?`<p class="hint">많이 나간 메뉴: <b>${top.map(r=>esc(r.n)+" "+r.q+"개").join(" · ")}</b></p>`:""}
+   <h4>메뉴별 판매</h4>${menuTable}
+   <h4>결제 내역</h4>${txTable}
    <div class="row"><button id="mNo">닫기</button></div>`);
   $("mNo").onclick=closeModal;
-};
+  document.querySelectorAll(".seg [data-m]").forEach(btn=>btn.onclick=()=>{RP.mode=btn.dataset.m;showReport()});
+  const shift=n=>{const d=new Date(RP.anchor); if(RP.mode==="month")d.setMonth(d.getMonth()+n); else d.setDate(d.getDate()+(RP.mode==="week"?7:1)*n); RP.anchor=d.getTime(); showReport();};
+  $("rpPrev").onclick=()=>shift(-1); $("rpNext").onclick=()=>shift(1); $("rpToday").onclick=()=>{RP.anchor=Date.now();showReport()};
+}
+$("btnSales").onclick=()=>{RP.anchor=Date.now();showReport()};
 
 setInterval(()=>$("clock").textContent=new Date().toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"}),1000);
 $("clock").textContent=new Date().toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"});
