@@ -10,7 +10,7 @@
 <meta name="theme-color" content="#2f6b3f">
 <link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAIAAACyr5FlAAAFWUlEQVR4nO3dPZLbRhRFYcjlLSj2ErQEl0OXQ2feggPHShQ4cexNKFOoUug1aAmKZxMOuoyCSVxMA0S/dx94vkyjqWHP42GDBH/mzbvff5yANd9lLwC+iAMScUAiDkjEAYk4IBEHJOKARByQiAMScUAiDkjEAYk4IBEHJOKARByQiAMScUAiDkjEAYk4IBEHJOKARByQiAMScUAiDkjEAYk4IBEHJOKARByQiAPS99kLOOjnX9+p//ry6WvkSvqVW/ObWp8JtjHfeyYTr7jmpkwcu0a8lDjuimteKhDH4REvBY+74prvud8hPWXKJ/6cyMuKXPMq6zjOnU7MrCuuWfGNY8RcRs+64po3mMYxbiL85H6OcXD7jv/5q+zi4J5B7qUsVT1DOk3TXz/9ff/F9//8Eb+SfrXW7HWeo/PGsTripc5xn3IioeKaO9kdVl716pQ7vydSxTVPVnH03AT7J9jznY8fxSuuuZ9RHK/ae9tyuC1WXPOsTBzHppY764prXnJ5tHJ4t3z7w9vlP1++vey93MN38SqueZcaO4e6Md1MefUrWTfEimu+USOOVfcz3f66g1prrhrH9jQ9Z11uzVXjQADigEQckIgDUo047p+U2j43sPzfrOc8K675hstJsC+fvu49p/Ty7WX1Hv6Bc0o933Z/3ilrzWFPzBo9Zf/qoFdPDW2fbUy/CY5YM3Gs23XqML2M5vQ1h8VhdJ+j53fuv75NypjOXjMv9tnSM0GfMpqKa56sDitN/128Wq/HbB5cc/AbJF0erRxg3sGqWmu2O6ykv3vYVvxk7OKY6GNNykwc45jo4/+ypmEax0Qf/0mcg+kd0vSPpjCRewtx3Dkoo0nfO+12DsqYDLJojOIgCzcuhxXKWDKZhkUcJrOw4jCT/DgcpuApfTLJcaT//uae99MEKaPHM36aIGX0e65PE6SMvZ7l0wQp45j4ueU/WoGt6DjYNh4RPL3QOCjjcXxgHCzExcG2cZawSQbFQRnnipknhxVIEXGwbYwQMFV2DkjEAWl4HBxTxhk9W3YOSMQBaWwcHFNGGzphdg5IxAGJOCANjIM7HDHGzZmdAxJxQCIOSMQBiTggEQck4oBEHJCIAxJxQBoYh8lH4l3euDmzc0AiDkjEAWlsHNztGG3ohNk5IJWP4+OHzx8/fM5exQrbhfWL+AOAg16qdDP63/78ZcSlHLNc27iFjT5ql985Zj4305uV+Cxsr8Jx3N8i03fy1QVYbWm7RMQxbvdbnXtWH6uXW/eYMpXeORrVR2Qi6uLq7hlN3F+kHvpOhY0Uhl5DWZcbcwIp9M+VZ/UxO+UKC7sgJezUotGf8XpQuz62r7ljj353HaGqH0qWQneOKeRtcIkPWALKiHxGIjqOKfBtkmGVhO0Wwc9VXeewcq/nQHPKRVxVws4xJb3H+sRKUpqIf4o7J47J4D34te5mprz4IS2OyaCPKrJeFpN5hpSXAvVInFLy6XP62JY7n/znVuhDSZ9MfhyTwRQMOczEIo7JYxY+TKZhdBKsTeTJH8KYZNG47Bwzq+kEc/vd7eKY/GYUw/C3NjqsLD3VIcYwi8Y0jubyidhm0TgeVm6YT/Aw/9/LeueYXWwL8c+iqRFHc4FEqmTRVIqjmedbqJJaTczqxTErsZEUzaIpHEfjuZGUbmJWPo7Z8vpICeUaQSxdJ46lsFCuF8TSNeNYWr3+DhRz7Q5WXT+OVU94TR9Q4AwpshAHJOKARByQiAMScUAiDkjEAYk4IBEHJOKARByQiAMScUAiDkjEAYk4IBEHJOKARByQiAMScUAiDkjEAYk4IBEHJOKARByQ/gUtJuOwMeFyxwAAAABJRU5ErkJggg==">
 <title>Toad House POS</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;600&display=swap">
 <style>
 /* Layout: table floor grid → order screen (menu left, check right). Print area renders 80mm thermal tickets. */
 :root{
@@ -420,6 +420,35 @@ function noteModal(i){
 /* printing */
 /* ---- 주방 프린터 자동 출력 (Star CloudPRNT) ---- */
 const TK_FONT="'Apple SD Gothic Neo','PingFang SC','Hiragino Sans GB','Noto Sans KR','Noto Sans SC','Malgun Gothic',system-ui,sans-serif";
+const BADGE_HEAD="M98 214 Q98 152 158 146 Q200 140 242 146 Q302 152 302 214 Q302 268 200 270 Q98 268 98 214 Z";
+const BADGE_SMILE="M138 214 Q200 250 262 214";
+const LOGO_FONT="'Black Han Sans','Apple SD Gothic Neo','Noto Sans KR',sans-serif";
+try{ document.fonts&&document.fonts.load("46px 'Black Han Sans'","두꺼비집"); }catch(e){}
+function drawBadge(ctx,x,y,size){
+  const k=size/400; ctx.save(); ctx.translate(x,y); ctx.scale(k,k);
+  ctx.strokeStyle="#000"; ctx.fillStyle="#000"; ctx.lineCap="round"; ctx.lineJoin="round";
+  ctx.lineWidth=7; ctx.beginPath(); ctx.arc(200,200,194,0,Math.PI*2); ctx.stroke();
+  ctx.lineWidth=3; ctx.beginPath(); ctx.arc(200,200,166,0,Math.PI*2); ctx.stroke();
+  const arcText=(txt,r,size,spacing,top)=>{
+    ctx.font="700 "+size+"px "+TK_FONT; ctx.textAlign="center"; ctx.textBaseline="alphabetic";
+    const ch=[...txt], ws=ch.map(c=>ctx.measureText(c).width+spacing), tot=ws.reduce((a,b)=>a+b,0)-spacing;
+    let a=top?-Math.PI/2-tot/r/2:Math.PI/2+tot/r/2;
+    ch.forEach((c,i)=>{ const half=(ws[i]-spacing)/2/r; a+=top?half:-half;
+      ctx.save(); ctx.translate(200+r*Math.cos(a),200+r*Math.sin(a)); ctx.rotate(top?a+Math.PI/2:a-Math.PI/2); ctx.fillText(c,0,0); ctx.restore();
+      a+=top?(half+spacing/r):-(half+spacing/r); });
+  };
+  arcText("TOAD HOUSE · KOREAN BBQ",174,18,5,true);
+  arcText("BEVERLY BLVD · LOS ANGELES",184,16,6,false);
+  ctx.beginPath(); ctx.arc(34,200,5,0,Math.PI*2); ctx.arc(366,200,5,0,Math.PI*2); ctx.fill();
+  ctx.lineWidth=8; ctx.stroke(new Path2D(BADGE_HEAD));
+  [[152,130],[248,130]].forEach(([cx,cy])=>{ ctx.beginPath(); ctx.arc(cx,cy,32,0,Math.PI*2); ctx.fillStyle="#fff"; ctx.fill(); ctx.stroke(); });
+  ctx.fillStyle="#000"; ctx.beginPath(); ctx.arc(156,134,13,0,Math.PI*2); ctx.arc(244,134,13,0,Math.PI*2); ctx.fill();
+  ctx.stroke(new Path2D(BADGE_SMILE));
+  ctx.beginPath(); ctx.arc(120,226,6,0,Math.PI*2); ctx.arc(280,226,6,0,Math.PI*2); ctx.fill();
+  ctx.font="48px "+LOGO_FONT; ctx.textAlign="center"; ctx.fillText("두꺼비집",200,326);
+  ctx.restore();
+}
+const BADGE_SVG=`<svg viewBox="0 0 400 400" width="150" height="150" style="display:block;margin:0 auto 4px"><defs><path id="rbT" d="M26 200 A174 174 0 0 1 374 200"/><path id="rbB" d="M16 200 A184 184 0 0 0 384 200"/></defs><circle cx="200" cy="200" r="194" fill="none" stroke="#000" stroke-width="7"/><circle cx="200" cy="200" r="166" fill="none" stroke="#000" stroke-width="3"/><text font-family="Noto Sans KR,sans-serif" font-weight="700" font-size="18" letter-spacing="5"><textPath href="#rbT" startOffset="50%" text-anchor="middle">TOAD HOUSE · KOREAN BBQ</textPath></text><text font-family="Noto Sans KR,sans-serif" font-weight="700" font-size="16" letter-spacing="6"><textPath href="#rbB" startOffset="50%" text-anchor="middle">BEVERLY BLVD · LOS ANGELES</textPath></text><circle cx="34" cy="200" r="5"/><circle cx="366" cy="200" r="5"/><g fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"><path d="${BADGE_HEAD}"/><circle cx="152" cy="130" r="32" fill="#fff"/><circle cx="248" cy="130" r="32" fill="#fff"/><path d="${BADGE_SMILE}"/></g><circle cx="156" cy="134" r="13"/><circle cx="244" cy="134" r="13"/><circle cx="120" cy="226" r="6"/><circle cx="280" cy="226" r="6"/><text x="200" y="326" text-anchor="middle" font-family="Black Han Sans,sans-serif" font-size="48">두꺼비집</text></svg>`;
 function kitchenDoc(id,lines,isAdd,now){
   const d=[{t:label(id),s:58,b:1,a:"c"},{t:isAdd?"*** 추가 주문 ***":"주방 주문서",s:30,b:1,a:"c"},
     {t:now.toLocaleDateString("ko-KR")+" "+now.toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"}),s:24,a:"c"},{hr:1}];
@@ -430,7 +459,7 @@ function kitchenDoc(id,lines,isAdd,now){
 }
 function receiptDoc(t,id,no,when,paid){
   const c=calc(t), s=S.settings, dt=new Date(when);
-  const d=[{t:"두꺼비집",s:46,b:1,a:"c"},{t:s.name+" · Korean BBQ",s:24,a:"c"},{t:s.addr,s:22,a:"c"},{t:s.phone,s:22,a:"c"},{hr:1},
+  const d=[{logo:1,size:240},{t:s.addr,s:22,a:"c",gap:6},{t:s.phone,s:22,a:"c"},{hr:1},
     {l:label(id),r:"#"+no,s:26},{l:dt.toLocaleDateString("en-US"),r:dt.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"}),s:26},{hr:1}];
   t.items.forEach(x=>{ d.push({l:x.qty+" "+x.name,r:money(x.price*x.qty),s:28}); const z=itemZh(x); const sub=[x.en,z].filter(Boolean).join(" · "); if(sub)d.push({t:sub,s:22,ind:26}); });
   d.push({hr:1},{l:"Subtotal",r:money(c.sub),s:26},{l:"Tax "+s.tax+"%",r:money(c.tax),s:26},{l:"TOTAL",r:money(c.total),s:34,b:1});
@@ -449,6 +478,7 @@ function docToPNG(doc){
   const ops=[]; let y=P;
   doc.forEach(o=>{
     if(o.hr){ ops.push({hr:1,y:y+10}); y+=22; return; }
+    if(o.logo){ ops.push({logo:1,y:y+4,size:o.size}); y+=o.size+12; return; }
     y+=o.gap||0; ctx.font=font(o); const lh=Math.round(o.s*1.28);
     if(o.l!==undefined){ const rw=ctx.measureText(o.r).width; const ls=wrap(o.l,W-2*P-rw-16);
       ls.forEach((ln,i)=>{ ops.push({o,x:P,y,txt:ln,al:"left"}); if(i===0)ops.push({o,x:W-P,y,txt:o.r,al:"right"}); y+=lh; }); return; }
@@ -456,7 +486,7 @@ function docToPNG(doc){
   });
   cv.width=W; cv.height=Math.ceil(y+30);
   ctx.fillStyle="#fff"; ctx.fillRect(0,0,cv.width,cv.height); ctx.fillStyle="#000"; ctx.textBaseline="top";
-  ops.forEach(op=>{ if(op.hr){ for(let x=P;x<W-P;x+=12)ctx.fillRect(x,op.y,7,2); return; }
+  ops.forEach(op=>{ if(op.logo){ drawBadge(ctx,(W-op.size)/2,op.y,op.size); return; } if(op.hr){ for(let x=P;x<W-P;x+=12)ctx.fillRect(x,op.y,7,2); return; }
     ctx.font=font(op.o); ctx.textAlign=op.al; ctx.fillText(op.txt,op.x,op.y); });
   const im=ctx.getImageData(0,0,cv.width,cv.height), px=im.data;
   for(let i=0;i<px.length;i+=4){ const v=(px[i]+px[i+1]+px[i+2])/3<150?0:255; px[i]=px[i+1]=px[i+2]=v; px[i+3]=255; }
@@ -497,7 +527,7 @@ function receiptHtml(t,id,no,when,paid){
   const c=calc(t); const s=S.settings; const d=new Date(when);
   const tips=[18,20,22].map(p=>`<div class="r"><span>${p}%</span><span>${money(c.sub*p/100)}</span></div>`).join("");
   return `<div class="tk">
-    <h1>두꺼비집</h1><div class="c">${esc(s.name)} · Korean BBQ</div><div class="c">${esc(s.addr)}</div><div class="c">${esc(s.phone)}</div><hr>
+    ${BADGE_SVG}<div class="c">${esc(s.addr)}</div><div class="c">${esc(s.phone)}</div><hr>
     <div class="r"><span>${label(id)}</span><span>#${no}</span></div>
     <div class="r"><span>${d.toLocaleDateString("en-US")}</span><span>${d.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})}</span></div><hr>
     ${t.items.map(x=>`<div class="r"><span>${x.qty} ${esc(x.name)}</span><span>${money(x.price*x.qty)}</span></div>${(x.en||itemZh(x))?`<div style="margin:-2px 0 3px 14px">${esc([x.en,itemZh(x)].filter(Boolean).join(" · "))}</div>`:""}`).join("")}<hr>
