@@ -374,8 +374,8 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",
 const tableIds=()=>[...Array(S.settings.tables)].map((_,i)=>"T"+(i+1)).concat([...Array(S.settings.togo)].map((_,i)=>"TO"+(i+1)));
 const label=id=>id.startsWith("TO")?"투고 "+id.slice(2):"테이블 "+id.slice(1);
 const timeStr=d=>new Date(d).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"});
-// 주류는 주방으로 보내지 않음
-const NO_KITCHEN=["소주/전통주","맥주"];
+// 주류·음료는 주방으로 보내지 않음
+const NO_KITCHEN=["소주/전통주","맥주","음료"];
 const isBar=x=>{const f=menu().find(y=>y.name===x.name);return !!f&&NO_KITCHEN.includes(f.cat)};
 const needK=x=>!isBar(x)&&x.qty>x.sent;
 const lineAmt=x=>x.svc?0:x.price*x.qty;
