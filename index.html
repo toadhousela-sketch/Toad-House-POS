@@ -89,6 +89,7 @@ header.top h1 small{font-weight:500;color:var(--muted);font-size:13px}
 .tot .big{font-size:22px;font-weight:900}
 .discBtns{display:flex;align-items:center;gap:6px;color:var(--muted)} .discBtns button{padding:4px 10px;font-size:13px;min-height:0} .discBtns button.on{background:var(--toad);color:var(--toad-ink);border-color:var(--toad)} #disc{color:var(--danger)}
 .acts{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 16px 16px}
+.mvGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;max-height:55vh;overflow:auto;margin:8px 0} .mvT{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:10px;text-align:left} .mvT em{font-style:normal;font-size:12px;color:var(--muted)} .mvT.busy em{color:var(--busy)}
 .acts .wide{grid-column:1/-1;padding:14px;font-size:17px}
 
 /* modal */
@@ -193,7 +194,8 @@ table.rep tr.cat td{font-weight:700;background:var(--bg);padding-top:10px}
       <button class="warn wide" id="btnKitchen">주방으로 보내기 (출력)</button>
       <button id="btnReceipt">손님 영수증 출력</button>
       <button class="primary" id="btnPaid">결제 완료</button>
-      <button class="danger" id="btnClear" style="grid-column:1/-1">주문 전체 취소</button>
+      <button id="btnMove">테이블 이동</button>
+      <button class="danger" id="btnClear">주문 전체 취소</button>
     </div>
   </aside>
 </main>
@@ -613,6 +615,28 @@ $("btnPaid").onclick=()=>{
 };
 $("btnClear").onclick=()=>confirmBox(`${label(cur)} 주문을 모두 지울까요?`,()=>{S.tables[cur]={items:[]};commitTable(cur);back()});
 $("btnBack").onclick=back;
+// 테이블 이동 / 합치기
+$("btnMove").onclick=()=>{
+  const from=cur; const t=S.tables[from]; if(!t||!t.items.length)return;
+  const btns=tableIds().filter(id=>id!==from).map(id=>{const o=S.tables[id]; const busy=o&&o.items.length;
+    return `<button class="mvT${busy?" busy":""}" data-id="${id}">${label(id)}<em>${busy?"사용 중 · 합치기":"비어있음"}</em></button>`}).join("");
+  modal(`<h3>${label(from)} → 어느 테이블로 옮길까요?</h3><div class="mvGrid">${btns}</div><div class="row"><button id="mNo">취소</button></div>`);
+  $("mNo").onclick=closeModal;
+  document.querySelectorAll(".mvT").forEach(b=>b.onclick=()=>{const to=b.dataset.id; const o=S.tables[to];
+    if(o&&o.items.length) confirmBox(`${label(to)}에 이미 주문이 있습니다. ${label(from)} 주문을 합칠까요?`,()=>moveTable(from,to));
+    else { closeModal(); moveTable(from,to); } });
+};
+function moveTable(from,to){
+  const a=S.tables[from]; if(!a)return; const b=S.tables[to];
+  if(b&&b.items.length){
+    a.items.forEach(x=>{const y=b.items.find(z=>z.name===x.name&&z.price===x.price&&!z.note&&!x.note&&!!z.svc===!!x.svc);
+      if(y){y.qty+=x.qty; y.sent+=x.sent;} else b.items.push(x);});
+    b.opened=Math.min(b.opened||Date.now(),a.opened||Date.now()); if(!b.disc&&a.disc)b.disc=a.disc; if(!b.no&&a.no)b.no=a.no;
+  } else S.tables[to]=a;
+  const moved=S.tables[to]; cur=to; commitTable(to);           // 새 테이블 먼저 저장
+  S.tables[to]=S.tables[to]||moved; S.tables[from]={items:[]}; commitTable(from);  // 그 다음 원래 테이블 비우기
+  renderOrder(); toast(`${label(from)} → ${label(to)} 이동했습니다`);
+}
 
 /* menu & settings */
 $("btnMenu").onclick=()=>{
