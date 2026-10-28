@@ -151,6 +151,7 @@ table.rep tr.cat td{font-weight:700;background:var(--bg);padding-top:10px}
 .pad button{font-size:26px;padding:14px 0;font-weight:700}
 .clkNow{text-align:center;color:var(--muted);margin:0}
 .clkBig{display:grid;gap:10px;margin:12px 0} .clkBig button{font-size:22px;padding:18px;font-weight:800}
+.clkBig button small,.pad button small{display:block;font-size:13px;font-weight:600;opacity:.75}
 .tc td.warn{color:var(--danger);font-weight:700} .tc .sm{font-size:12px;color:var(--muted)}
 .empRow{display:grid;grid-template-columns:1fr 90px auto auto;gap:6px;align-items:center;margin:6px 0}
 </style>
@@ -181,7 +182,7 @@ table.rep tr.cat td{font-weight:700;background:var(--bg);padding-top:10px}
   <span class="sync" id="prn" hidden></span>
   <span class="sync" id="sync" hidden></span>
   <span class="clock num" id="clock"></span>
-  <button class="ghost" id="btnClock">출퇴근</button>
+  <button class="ghost" id="btnClock">출퇴근 · Clock</button>
   <button class="ghost" id="btnSales">매출 보기</button>
   <button class="ghost" id="btnMenu">메뉴/설정</button>
 </header>
@@ -732,9 +733,9 @@ function exportCsv(list,a,b){
 
 /* ===== 출퇴근 (Time Clock) ===== */
 const TC={mode:"week",anchor:0};
-const hm=ms=>{const m=Math.round(ms/60000);return Math.floor(m/60)+"시간 "+String(m%60).padStart(2,"0")+"분"};
+const hm=ms=>{const m=Math.round(ms/60000);return Math.floor(m/60)+"h "+String(m%60).padStart(2,"0")+"m"};
 const hrs=ms=>(Math.round(ms/36000)/100).toFixed(2);
-const tstr=t=>new Date(t).toLocaleTimeString("ko-KR",{hour:"numeric",minute:"2-digit"});
+const tstr=t=>new Date(t).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"});
 const LK={employees:"emps",shifts:"shifts"};
 function dbPush(col,v){ if(CLOUD&&db){const r=db.ref("pos/"+col).push(clean(v)); return r.key||"";} const k="L"+Date.now()+Math.random().toString(36).slice(2,6); S[LK[col]][k]=v; saveLocal(); return k; }
 function dbSet(col,k,v){ if(CLOUD&&db) return db.ref("pos/"+col+"/"+k).set(v===null?null:clean(v)); if(v===null)delete S[LK[col]][k]; else S[LK[col]][k]=v; saveLocal(); }
@@ -747,18 +748,18 @@ const workMs=(sh,now)=>Math.max(0,((sh.out||now||Date.now())-sh.time)-brMs(sh,no
 const empList=()=>Object.entries(S.emps||{}).map(([id,e])=>Object.assign({id},e)).sort((a,b)=>a.name.localeCompare(b.name));
 async function openShift(empId){ const l=await shiftsBetween(Date.now()-20*3600000,Date.now()+60000); return l.filter(x=>x.e===empId&&!x.out).sort((a,b)=>b.time-a.time)[0]||null; }
 
-$("btnClock").onclick=()=>pinPad("출퇴근 기록","직원 번호(PIN)를 누르세요",async pin=>{
+$("btnClock").onclick=()=>pinPad("출퇴근 기록 · Time Clock","직원 번호(PIN)를 누르세요 · Enter your PIN",async pin=>{
   const e=empList().find(x=>x.active!==false&&String(x.pin)===pin);
-  if(!e){ toast("번호가 맞지 않습니다",true); return false; }
+  if(!e){ toast("번호가 맞지 않습니다 · Wrong PIN",true); return false; }
   clockScreen(e); return true;
 },true);
 
 function pinPad(title,hint,onOk,showMgr){
   let v="";
   modal(`<h3>${title}</h3><p class="clkNow num" id="clkT"></p><p class="hint" style="text-align:center">${hint}</p><div class="pinD num" id="pinD"></div>
-    <div class="pad">${[1,2,3,4,5,6,7,8,9].map(n=>`<button data-k="${n}">${n}</button>`).join("")}<button data-k="c">지움</button><button data-k="0">0</button><button data-k="ok" class="primary">확인</button></div>
-    <div class="row">${showMgr?'<button class="ghost" id="mMgr" style="margin-right:auto">관리자: 근무 기록·직원</button>':""}<button id="mNo">닫기</button></div>`);
-  const tick=()=>{const el=$("clkT"); if(el)el.textContent=new Date().toLocaleString("ko-KR",{weekday:"short",month:"numeric",day:"numeric",hour:"numeric",minute:"2-digit"});}; tick();
+    <div class="pad">${[1,2,3,4,5,6,7,8,9].map(n=>`<button data-k="${n}">${n}</button>`).join("")}<button data-k="c">지움<small>Clear</small></button><button data-k="0">0</button><button data-k="ok" class="primary">확인<small>OK</small></button></div>
+    <div class="row">${showMgr?'<button class="ghost" id="mMgr" style="margin-right:auto">관리자 · Manager</button>':""}<button id="mNo">닫기 · Close</button></div>`);
+  const tick=()=>{const el=$("clkT"); if(el)el.textContent=new Date().toLocaleString("en-US",{weekday:"short",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});}; tick();
   const iv=setInterval(()=>{ if(!$("clkT"))clearInterval(iv); else tick(); },15000);
   const show=()=>$("pinD").textContent="•".repeat(v.length)||" ";
   show(); $("mNo").onclick=closeModal;
@@ -767,31 +768,31 @@ function pinPad(title,hint,onOk,showMgr){
     if(k==="c")v=v.slice(0,-1); else if(k==="ok"){ if(!v)return; const ok=await onOk(v); if(ok===false){v="";} } else if(v.length<6)v+=k; if($("pinD"))show();});
 }
 async function clockScreen(e){
-  modal(`<h3>${esc(e.name)}님</h3><p class="hint">확인 중…</p>`);
-  let sh; try{ sh=await openShift(e.id); }catch(err){ modal(`<h3>연결 오류</h3><p class="hint">인터넷 연결을 확인해 주세요.</p><div class="row"><button id="mNo">닫기</button></div>`); $("mNo").onclick=closeModal; return; }
+  modal(`<h3>${esc(e.name)}</h3><p class="hint">확인 중… · Checking…</p>`);
+  let sh; try{ sh=await openShift(e.id); }catch(err){ modal(`<h3>연결 오류 · Connection error</h3><p class="hint">인터넷 연결을 확인해 주세요. · Please check the internet connection.</p><div class="row"><button id="mNo">닫기 · Close</button></div>`); $("mNo").onclick=closeModal; return; }
   const now=Date.now(); const onBreak=sh&&(sh.br||[]).some(x=>!x[1]);
   const stale=sh&&now-sh.time>16*3600000;
   let status, btns;
-  if(!sh||stale){ status=stale?`<p class="hint" style="color:var(--danger)">${new Date(sh.time).toLocaleDateString("ko-KR")} 퇴근 기록이 없습니다. 관리자에게 알려 주세요.</p>`:""; status+=`<p>지금은 <b>퇴근 상태</b>입니다.</p>`; btns=`<button class="primary" data-a="in">출근</button>`; }
-  else if(onBreak){ status=`<p><b>휴식 중</b> · ${tstr(sh.time)} 출근</p>`; btns=`<button class="primary" data-a="be">휴식 끝</button>`; }
-  else { status=`<p><b>근무 중</b> · ${tstr(sh.time)} 출근 · ${hm(workMs(sh,now))}</p>`; btns=`<button data-a="bs">휴식 시작</button><button class="danger" data-a="out">퇴근</button>`; }
-  modal(`<h3>${esc(e.name)}님</h3><p class="clkNow num">${new Date(now).toLocaleString("ko-KR",{weekday:"short",month:"numeric",day:"numeric",hour:"numeric",minute:"2-digit"})}</p>${status}
-    <div class="clkBig">${btns}</div><div class="row"><button id="mNo">취소</button></div>`);
+  if(!sh||stale){ status=stale?`<p class="hint" style="color:var(--danger)">${new Date(sh.time).toLocaleDateString("en-US")} 퇴근 기록이 없습니다. 관리자에게 알려 주세요.<br>No clock-out on this day. Please tell the manager.</p>`:""; status+=`<p>지금은 <b>퇴근 상태</b>입니다. · You are <b>clocked out</b>.</p>`; btns=`<button class="primary" data-a="in">출근<small>Clock In</small></button>`; }
+  else if(onBreak){ status=`<p><b>휴식 중 · On break</b><br>${tstr(sh.time)} 출근 · Clocked in</p>`; btns=`<button class="primary" data-a="be">휴식 끝<small>End Break</small></button>`; }
+  else { status=`<p><b>근무 중 · Working</b><br>${tstr(sh.time)} 출근 · Clocked in · ${hm(workMs(sh,now))}</p>`; btns=`<button data-a="bs">휴식 시작<small>Start Break</small></button><button class="danger" data-a="out">퇴근<small>Clock Out</small></button>`; }
+  modal(`<h3>${esc(e.name)}</h3><p class="clkNow num">${new Date(now).toLocaleString("en-US",{weekday:"short",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})}</p>${status}
+    <div class="clkBig">${btns}</div><div class="row"><button id="mNo">취소 · Cancel</button></div>`);
   $("mNo").onclick=closeModal;
   document.querySelectorAll(".clkBig [data-a]").forEach(b=>b.onclick=()=>{const a=b.dataset.a, t=Date.now();
-    if(a==="in"){ dbPush("shifts",{e:e.id,n:e.name,time:t,br:[]}); toast(`${e.name} 출근 ${tstr(t)}`); }
+    if(a==="in"){ dbPush("shifts",{e:e.id,n:e.name,time:t,br:[]}); toast(`${e.name} 출근 · Clocked in ${tstr(t)}`); }
     else { const br=(sh.br||[]).map(x=>x.slice());
-      if(a==="bs"){ br.push([t,0]); dbSet("shifts",sh.k,Object.assign({},strip(sh),{br})); toast(`${e.name} 휴식 시작 ${tstr(t)}`); }
-      if(a==="be"){ const o=br.find(x=>!x[1]); if(o)o[1]=t; dbSet("shifts",sh.k,Object.assign({},strip(sh),{br})); toast(`${e.name} 휴식 끝 ${tstr(t)}`); }
-      if(a==="out"){ const o=br.find(x=>!x[1]); if(o)o[1]=t; const ns=Object.assign({},strip(sh),{br,out:t}); dbSet("shifts",sh.k,ns); toast(`${e.name} 퇴근 ${tstr(t)} · 오늘 ${hm(workMs(ns))}`); } }
+      if(a==="bs"){ br.push([t,0]); dbSet("shifts",sh.k,Object.assign({},strip(sh),{br})); toast(`${e.name} 휴식 시작 · Break started ${tstr(t)}`); }
+      if(a==="be"){ const o=br.find(x=>!x[1]); if(o)o[1]=t; dbSet("shifts",sh.k,Object.assign({},strip(sh),{br})); toast(`${e.name} 휴식 끝 · Break ended ${tstr(t)}`); }
+      if(a==="out"){ const o=br.find(x=>!x[1]); if(o)o[1]=t; const ns=Object.assign({},strip(sh),{br,out:t}); dbSet("shifts",sh.k,ns); toast(`${e.name} 퇴근 · Clocked out ${tstr(t)} · ${hm(workMs(ns))}`); } }
     closeModal(); });
 }
 const strip=sh=>{const o=Object.assign({},sh); delete o.k; return o;};
 
 function mgrGate(next){
   const mp=S.settings.mgrPin;
-  if(!mp){ pinPad("관리자 번호 만들기","근무 기록을 볼 관리자 번호(4~6자리)를 정하세요",v=>{ if(v.length<4){toast("4자리 이상으로 정해 주세요",true);return false;} S.settings.mgrPin=v; commitSettings(); toast("관리자 번호를 저장했습니다"); next(); return true; }); return; }
-  pinPad("관리자 확인","관리자 번호를 누르세요",v=>{ if(v!==String(mp)){toast("관리자 번호가 맞지 않습니다",true);return false;} next(); return true; });
+  if(!mp){ pinPad("관리자 번호 만들기 · Create manager PIN","근무 기록을 볼 관리자 번호(4~6자리) · 4–6 digit manager PIN",v=>{ if(v.length<4){toast("4자리 이상 · At least 4 digits",true);return false;} S.settings.mgrPin=v; commitSettings(); toast("관리자 번호를 저장했습니다 · Manager PIN saved"); next(); return true; }); return; }
+  pinPad("관리자 확인 · Manager","관리자 번호를 누르세요 · Enter manager PIN",v=>{ if(v!==String(mp)){toast("관리자 번호가 맞지 않습니다 · Wrong manager PIN",true);return false;} next(); return true; });
 }
 
 /* 근무 기록 (관리자) */
@@ -810,23 +811,23 @@ function payCalc(shifts){
 async function showTimesheet(){
   if(!TC.anchor)TC.anchor=Date.now();
   const [a,b]=periodRange(TC.mode,TC.anchor);
-  modal(`<h3>근무 기록</h3><p class="hint">불러오는 중…</p>`);
+  modal(`<h3>근무 기록 · Timesheet</h3><p class="hint">불러오는 중… · Loading…</p>`);
   let list; try{ list=(await shiftsBetween(a.getTime(),b.getTime())).sort((x,y)=>x.time-y.time); }
-  catch(e){ modal(`<h3>근무 기록</h3><p class="hint" style="color:var(--danger)">불러오지 못했습니다. 인터넷 연결을 확인해 주세요.</p><div class="row"><button id="mNo">닫기</button></div>`); $("mNo").onclick=closeModal; return; }
+  catch(e){ modal(`<h3>근무 기록 · Timesheet</h3><p class="hint" style="color:var(--danger)">불러오지 못했습니다. 인터넷 연결을 확인해 주세요. · Could not load. Check the connection.</p><div class="row"><button id="mNo">닫기 · Close</button></div>`); $("mNo").onclick=closeModal; return; }
   const sum=payCalc(list); const f=n=>n.toFixed(2);
-  const sumT=sum.length?`<table class="rep num tc"><tr><td><b>직원</b></td><td class="q">일수</td><td>총 시간</td><td>정규</td><td>초과 1.5배</td><td>2배</td></tr>
-    ${sum.map(E=>`<tr><td>${esc(E.n)}${E.open?` <span class="sm" style="color:var(--danger)">퇴근 누락 ${E.open}</span>`:""}</td><td class="q">${E.nDays}</td><td><b>${f(E.total)}</b></td><td>${f(E.reg)}</td><td>${f(E.ot)}</td><td>${f(E.dt)}</td></tr>`).join("")}</table>
-    <p class="hint">시간 단위(소수). 초과근무는 캘리포니아 기준(하루 8시간·주 40시간 초과 1.5배, 하루 12시간 초과 2배)으로 계산한 참고용입니다.</p>`:"<p class='hint'>이 기간에 근무 기록이 없습니다.</p>";
+  const sumT=sum.length?`<table class="rep num tc"><tr><td><b>직원<br><span class="sm">Employee</span></b></td><td class="q">일수<br><span class="sm">Days</span></td><td>총 시간<br><span class="sm">Total</span></td><td>정규<br><span class="sm">Regular</span></td><td>초과 1.5배<br><span class="sm">OT 1.5x</span></td><td>2배<br><span class="sm">DT 2x</span></td></tr>
+    ${sum.map(E=>`<tr><td>${esc(E.n)}${E.open?` <span class="sm" style="color:var(--danger)">퇴근 누락 · Missing out ${E.open}</span>`:""}</td><td class="q">${E.nDays}</td><td><b>${f(E.total)}</b></td><td>${f(E.reg)}</td><td>${f(E.ot)}</td><td>${f(E.dt)}</td></tr>`).join("")}</table>
+    <p class="hint">시간 단위(소수). 초과근무는 캘리포니아 기준(하루 8시간·주 40시간 초과 1.5배, 하루 12시간 초과 2배)으로 계산한 참고용입니다.<br>Hours in decimals. Overtime estimated under California rules (over 8h/day or 40h/week = 1.5x, over 12h/day = 2x), for reference only.</p>`:"<p class='hint'>이 기간에 근무 기록이 없습니다. · No shifts in this period.</p>";
   const rows=list.slice().reverse().map(sh=>{const d=new Date(sh.time); const live=!sh.out&&Date.now()-sh.time<16*3600000;
-    return `<tr><td>${esc(sh.n)} · ${d.toLocaleDateString("ko-KR",{month:"numeric",day:"numeric",weekday:"short"})}<div class="sub">${tstr(sh.time)} – ${sh.out?tstr(sh.out):(live?"근무 중":'<b style="color:var(--danger)">퇴근 누락</b>')} · 휴식 ${Math.round(brMs(sh)/60000)}분${sh.edited?" · 수정됨":""}</div></td>
-      <td>${sh.out||live?hrs(workMs(sh)):"—"}</td><td><button class="ghost" data-ed="${sh.k}">수정</button></td></tr>`}).join("");
-  modal(`<h3>근무 기록</h3>
-   <div class="seg">${[["week","주"],["month","월"]].map(([m,l])=>`<button data-tm="${m}" class="${TC.mode===m?"on":""}">${l}</button>`).join("")}
-     <span class="spacer"></span><button id="tcPrev">◀</button><button id="tcToday">오늘</button><button id="tcNext">▶</button></div>
+    return `<tr><td>${esc(sh.n)} · ${d.toLocaleDateString("en-US",{weekday:"short",month:"numeric",day:"numeric"})}<div class="sub">${tstr(sh.time)} – ${sh.out?tstr(sh.out):(live?"근무 중 · Working":'<b style="color:var(--danger)">퇴근 누락 · Missing out</b>')} · 휴식 Break ${Math.round(brMs(sh)/60000)} min${sh.edited?" · 수정됨 Edited":""}</div></td>
+      <td>${sh.out||live?hrs(workMs(sh)):"—"}</td><td><button class="ghost" data-ed="${sh.k}">수정 · Edit</button></td></tr>`}).join("");
+  modal(`<h3>근무 기록 · Timesheet</h3>
+   <div class="seg">${[["week","주 · Week"],["month","월 · Month"]].map(([m,l])=>`<button data-tm="${m}" class="${TC.mode===m?"on":""}">${l}</button>`).join("")}
+     <span class="spacer"></span><button id="tcPrev">◀</button><button id="tcToday">오늘 · Today</button><button id="tcNext">▶</button></div>
    <h4>${periodLabel(TC.mode,a,b)}</h4>${sumT}
-   <div class="row" style="justify-content:flex-start"><button id="tcAdd">기록 직접 추가</button><button id="tcEmp">직원 관리</button><button id="tcCsv">엑셀(CSV) 내보내기</button></div>
-   <h4>출퇴근 내역</h4>${list.length?`<table class="rep num tc">${rows}</table>`:"<p class='hint'>내역이 없습니다.</p>"}
-   <div class="row"><button id="mNo">닫기</button></div>`);
+   <div class="row" style="justify-content:flex-start"><button id="tcAdd">기록 추가 · Add shift</button><button id="tcEmp">직원 관리 · Employees</button><button id="tcCsv">엑셀(CSV) · Export</button></div>
+   <h4>출퇴근 내역 · Shifts</h4>${list.length?`<table class="rep num tc">${rows}</table>`:"<p class='hint'>내역이 없습니다. · No shifts.</p>"}
+   <div class="row"><button id="mNo">닫기 · Close</button></div>`);
   $("mNo").onclick=closeModal;
   document.querySelectorAll("[data-tm]").forEach(x=>x.onclick=()=>{TC.mode=x.dataset.tm;showTimesheet()});
   const shift=n=>{const d=new Date(TC.anchor); if(TC.mode==="month")d.setMonth(d.getMonth()+n); else d.setDate(d.getDate()+7*n); TC.anchor=d.getTime(); showTimesheet();};
@@ -837,41 +838,41 @@ async function showTimesheet(){
 }
 const dtl=t=>{const d=new Date(t); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,16);};
 function editShift(sh){
-  const emps=empList(); if(!emps.length){toast("먼저 직원을 추가해 주세요",true); return empManager();}
+  const emps=empList(); if(!emps.length){toast("먼저 직원을 추가해 주세요 · Add an employee first",true); return empManager();}
   const now=Date.now();
-  modal(`<h3>${sh?"근무 기록 수정":"근무 기록 추가"}</h3>
-    <label class="hint">직원<select id="esE">${emps.map(e=>`<option value="${e.id}" ${sh&&sh.e===e.id?"selected":""}>${esc(e.name)}</option>`).join("")}</select></label>
-    <label class="hint">출근<input id="esI" type="datetime-local" value="${dtl(sh?sh.time:now-8*3600000)}"></label>
-    <label class="hint">퇴근 (근무 중이면 비워 두세요)<input id="esO" type="datetime-local" value="${sh&&sh.out?dtl(sh.out):(sh?"":dtl(now))}"></label>
-    <label class="hint">휴식 (분)<input id="esB" type="number" min="0" value="${sh?Math.round(brMs(sh)/60000):0}"></label>
-    <div class="row">${sh?'<button class="danger" id="esDel" style="margin-right:auto">삭제</button>':""}<button id="mNo">취소</button><button class="primary" id="mYes">저장</button></div>`);
+  modal(`<h3>${sh?"근무 기록 수정 · Edit shift":"근무 기록 추가 · Add shift"}</h3>
+    <label class="hint">직원 · Employee<select id="esE">${emps.map(e=>`<option value="${e.id}" ${sh&&sh.e===e.id?"selected":""}>${esc(e.name)}</option>`).join("")}</select></label>
+    <label class="hint">출근 · Clock in<input id="esI" type="datetime-local" value="${dtl(sh?sh.time:now-8*3600000)}"></label>
+    <label class="hint">퇴근 · Clock out (근무 중이면 비워 두세요 · leave blank if still working)<input id="esO" type="datetime-local" value="${sh&&sh.out?dtl(sh.out):(sh?"":dtl(now))}"></label>
+    <label class="hint">휴식 · Break (분 · minutes)<input id="esB" type="number" min="0" value="${sh?Math.round(brMs(sh)/60000):0}"></label>
+    <div class="row">${sh?'<button class="danger" id="esDel" style="margin-right:auto">삭제 · Delete</button>':""}<button id="mNo">취소 · Cancel</button><button class="primary" id="mYes">저장 · Save</button></div>`);
   $("mNo").onclick=showTimesheet;
-  if(sh)$("esDel").onclick=()=>confirmBox("이 근무 기록을 삭제할까요?",()=>{dbSet("shifts",sh.k,null); setTimeout(showTimesheet,200);});
+  if(sh)$("esDel").onclick=()=>confirmBox("이 근무 기록을 삭제할까요? · Delete this shift?",()=>{dbSet("shifts",sh.k,null); setTimeout(showTimesheet,200);});
   $("mYes").onclick=()=>{const eid=$("esE").value, e=S.emps[eid]; const tin=new Date($("esI").value).getTime(); const tout=$("esO").value?new Date($("esO").value).getTime():null;
-    if(!tin||isNaN(tin)){toast("출근 시간을 넣어 주세요",true);return;} if(tout&&tout<=tin){toast("퇴근이 출근보다 늦어야 합니다",true);return;}
+    if(!tin||isNaN(tin)){toast("출근 시간을 넣어 주세요 · Enter clock-in time",true);return;} if(tout&&tout<=tin){toast("퇴근이 출근보다 늦어야 합니다 · Clock-out must be after clock-in",true);return;}
     const v={e:eid,n:e?e.name:"?",time:tin,out:tout,br:[],brMin:Math.max(0,parseInt($("esB").value)||0),edited:true};
     if(!v.out)delete v.out;
     if(sh)dbSet("shifts",sh.k,v); else dbPush("shifts",v); setTimeout(showTimesheet,200);};
 }
 function empManager(){
   const L=empList();
-  modal(`<h3>직원 관리</h3><p class="hint">직원마다 출퇴근할 때 누를 번호(PIN, 4~6자리)를 정해 주세요.</p>
-    ${L.map(e=>`<div class="empRow"><input data-n="${e.id}" value="${esc(e.name)}"><input data-p="${e.id}" value="${esc(e.pin)}" inputmode="numeric" maxlength="6"><label class="hint" style="margin:0"><input type="checkbox" data-a="${e.id}" ${e.active!==false?"checked":""} style="width:auto"> 재직</label><button class="ghost" data-sv="${e.id}">저장</button></div>`).join("")||"<p class='hint'>아직 직원이 없습니다.</p>"}
-    <h4>새 직원</h4><div class="empRow"><input id="neN" placeholder="이름"><input id="neP" placeholder="PIN" inputmode="numeric" maxlength="6"><span></span><button class="primary" id="neAdd">추가</button></div>
-    <div class="row"><button id="mNo">근무 기록으로</button></div>`);
+  modal(`<h3>직원 관리 · Employees</h3><p class="hint">직원마다 출퇴근할 때 누를 번호(PIN, 4~6자리)를 정해 주세요.<br>Give each employee a 4–6 digit PIN for clocking in and out.</p>
+    ${L.map(e=>`<div class="empRow"><input data-n="${e.id}" value="${esc(e.name)}"><input data-p="${e.id}" value="${esc(e.pin)}" inputmode="numeric" maxlength="6"><label class="hint" style="margin:0"><input type="checkbox" data-a="${e.id}" ${e.active!==false?"checked":""} style="width:auto"> 재직 Active</label><button class="ghost" data-sv="${e.id}">저장 · Save</button></div>`).join("")||"<p class='hint'>아직 직원이 없습니다. · No employees yet.</p>"}
+    <h4>새 직원 · New employee</h4><div class="empRow"><input id="neN" placeholder="이름 · Name"><input id="neP" placeholder="PIN" inputmode="numeric" maxlength="6"><span></span><button class="primary" id="neAdd">추가 · Add</button></div>
+    <div class="row"><button id="mNo">← 근무 기록 · Timesheet</button></div>`);
   $("mNo").onclick=showTimesheet;
-  const valid=(name,pin,id)=>{ if(!name){toast("이름을 넣어 주세요",true);return false;} if(!/^\d{4,6}$/.test(pin)){toast("PIN은 숫자 4~6자리입니다",true);return false;}
-    if(empList().some(x=>x.id!==id&&String(x.pin)===pin)){toast("다른 직원이 쓰는 번호입니다",true);return false;} if(pin===String(S.settings.mgrPin||"")){toast("관리자 번호와 같을 수 없습니다",true);return false;} return true; };
-  $("neAdd").onclick=()=>{const n=$("neN").value.trim(), p=$("neP").value.trim(); if(!valid(n,p,null))return; const k=dbPush("employees",{name:n,pin:p,active:true}); toast(n+" 추가했습니다"); setTimeout(empManager,200);};
+  const valid=(name,pin,id)=>{ if(!name){toast("이름을 넣어 주세요 · Enter a name",true);return false;} if(!/^\d{4,6}$/.test(pin)){toast("PIN은 숫자 4~6자리 · PIN must be 4–6 digits",true);return false;}
+    if(empList().some(x=>x.id!==id&&String(x.pin)===pin)){toast("다른 직원이 쓰는 번호입니다 · PIN already in use",true);return false;} if(pin===String(S.settings.mgrPin||"")){toast("관리자 번호와 같을 수 없습니다 · Cannot match manager PIN",true);return false;} return true; };
+  $("neAdd").onclick=()=>{const n=$("neN").value.trim(), p=$("neP").value.trim(); if(!valid(n,p,null))return; const k=dbPush("employees",{name:n,pin:p,active:true}); toast(n+" 추가했습니다 · added"); setTimeout(empManager,200);};
   document.querySelectorAll("[data-sv]").forEach(b=>b.onclick=()=>{const id=b.dataset.sv; const n=document.querySelector(`[data-n="${id}"]`).value.trim(), p=document.querySelector(`[data-p="${id}"]`).value.trim(), a=document.querySelector(`[data-a="${id}"]`).checked;
-    if(!valid(n,p,id))return; dbSet("employees",id,{name:n,pin:p,active:a}); toast("저장했습니다"); setTimeout(empManager,200);});
+    if(!valid(n,p,id))return; dbSet("employees",id,{name:n,pin:p,active:a}); toast("저장했습니다 · Saved"); setTimeout(empManager,200);});
 }
 function timesheetCsv(list,sum,a,b){
   const q=v=>{v=v==null?"":String(v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
   const T=t=>t?new Date(t).toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit"}):"";
-  const rows=[["직원","날짜","출근","퇴근","휴식(분)","근무시간","비고"]];
-  list.forEach(sh=>rows.push([sh.n,new Date(sh.time).toLocaleDateString("en-CA"),T(sh.time),T(sh.out),Math.round(brMs(sh)/60000),sh.out?hrs(workMs(sh)):"",(sh.out?"":"퇴근 누락")+(sh.edited?" 수정됨":"")]));
-  rows.push([],["직원","일수","총 시간","정규","초과 1.5배","2배"]);
+  const rows=[["직원 Employee","날짜 Date","출근 In","퇴근 Out","휴식 Break (min)","근무시간 Hours","비고 Note"]];
+  list.forEach(sh=>rows.push([sh.n,new Date(sh.time).toLocaleDateString("en-CA"),T(sh.time),T(sh.out),Math.round(brMs(sh)/60000),sh.out?hrs(workMs(sh)):"",(sh.out?"":"퇴근 누락 Missing out")+(sh.edited?" 수정됨 Edited":"")]));
+  rows.push([],["직원 Employee","일수 Days","총 시간 Total","정규 Regular","초과 1.5배 OT 1.5x","2배 DT 2x"]);
   sum.forEach(E=>rows.push([E.n,E.nDays,E.total.toFixed(2),E.reg.toFixed(2),E.ot.toFixed(2),E.dt.toFixed(2)]));
   const csv="﻿"+rows.map(r=>r.map(q).join(",")).join("\r\n");
   const day=t=>new Date(t).toLocaleDateString("en-CA");
