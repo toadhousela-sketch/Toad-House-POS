@@ -108,6 +108,8 @@ table.rep tr.cat td{font-weight:700;background:var(--bg);padding-top:10px}
 .seg{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .seg button{padding:6px 12px;border-radius:8px}
 .seg button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+#ttl,#btnBack,#opened{white-space:nowrap} #btnCust{font-size:13px;padding:4px 10px;min-height:0;max-width:200px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-left:6px}
+.ctab td:first-child{color:var(--muted)} .ctab tr.hl td{font-weight:800;color:var(--ink)} .ctab tr.sec td{padding-top:12px;font-weight:800;color:var(--ink);border-bottom:1px solid var(--line)}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}
 .kpi{border:1px solid var(--line);border-radius:10px;padding:10px}
 .kpi span{display:block;font-size:12px;color:var(--muted)}
@@ -182,7 +184,7 @@ table.rep tr.cat td{font-weight:700;background:var(--bg);padding-top:10px}
     <div id="items"></div>
   </section>
   <aside id="check">
-    <div class="hd"><button class="ghost" id="btnBack">← 테이블</button><h2 id="ttl"></h2><span class="spacer"></span><span class="num" id="opened" style="color:var(--muted)"></span></div>
+    <div class="hd"><button class="ghost" id="btnBack">← 테이블</button><h2 id="ttl"></h2><button class="ghost" id="btnCust" hidden></button><span class="spacer"></span><span class="num" id="opened" style="color:var(--muted)"></span></div>
     <div id="lines"></div>
     <div class="tot">
       <span>소계</span><span class="num" id="sub"></span>
@@ -234,6 +236,7 @@ const DEFAULT_MENU=`# 형식: 카테고리 | 메뉴 이름 | 가격 | 영문 이
 식사류 | 계란찜 | 7 | Steamed Eggs
 식사류 | 볶음밥 (1인) | 10 | Fried Rice (1)
 식사류 | 볶음밥 (2인) | 16 | Fried Rice (2)
+식사류 | 공기밥 | 2 | Steamed Rice
 소주/전통주 | 새로 | 13 | Soju Saero
 소주/전통주 | 처음처럼 | 13 | Soju Chum Churum
 소주/전통주 | 참이슬 | 13 | Soju Chamisul
@@ -281,7 +284,7 @@ function normTable(t){ if(!t)return t; t.items=(t.items||[]).map(x=>Object.assig
 let db=null;
 function commitTable(id){
   const t=S.tables[id];
-  const empty=!t||!t.items.length;
+  const empty=!t||(!t.items.length&&!t.cust);
   if(empty)delete S.tables[id];
   if(CLOUD&&db){ db.ref("pos/tables/"+id).set(empty?null:clean(t)); }
   else saveLocal();
@@ -334,7 +337,8 @@ function startCloud(){
     // first device to connect seeds the shared menu & settings from this device
     db.ref("pos/settings").once("value").then(s=>{ if(!s.exists()){ commitSettings(); db.ref("pos/nextNo").set(S.settings.nextNo||1001); } });
     db.ref("pos/settings").on("value",s=>{ if(s.exists()){ S.settings=defaults({settings:s.val()}).settings; refresh(); } });
-    db.ref("pos/menuText").on("value",s=>{ if(s.exists()){ S.menuText=s.val(); refresh(); } });
+    db.ref("pos/menuText").on("value",s=>{ if(s.exists()){ S.menuText=s.val(); refresh();
+      if(!/\|\s*공기밥\s*\|/.test(S.menuText)) db.ref("pos/menuText").transaction(t=>t&&!/\|\s*공기밥\s*\|/.test(t)?addRiceLine(t):undefined); } });
     db.ref("pos/tables").on("value",s=>{
       const v=s.val()||{}; const keep=cur&&S.tables[cur]&&!S.tables[cur].items.length?S.tables[cur]:null;
       S.tables={}; Object.keys(v).forEach(k=>S.tables[k]=normTable(v[k]));
@@ -383,6 +387,8 @@ const NO_KITCHEN=["소주/전통주","맥주","음료"];
 const isBar=x=>{const f=menu().find(y=>y.name===x.name);return !!f&&NO_KITCHEN.includes(f.cat)};
 const needK=x=>!isBar(x)&&x.qty>x.sent;
 const lineAmt=x=>x.svc?0:x.price*x.qty;
+const AUTO_SVC=["공기밥"]; // 기본으로 서비스($0, 세금은 부과)로 들어가는 메뉴
+function addRiceLine(t){const L=t.split("\n");let k=-1;L.forEach((l,i)=>{if(/^\s*식사류\s*\|/.test(l))k=i});const line="식사류 | 공기밥 | 2 | Steamed Rice";if(k<0)L.push(line);else L.splice(k+1,0,line);return L.join("\n")}
 const SVC_LBL=" (서비스)";
 // 서비스(무료) 품목: 손님 금액은 $0, 세금은 원래 가격 기준으로 계산
 // 학생 할인(t.disc 5/10%): 음식(주류·음료 제외) 금액에서만 할인, 세금은 할인 전 금액 기준
@@ -410,7 +416,7 @@ function renderFloor(){
     const b=document.createElement("button"); b.className="tbl"+(busy?" busy":"");
     const unsent=busy?t.items.filter(needK).length:0;
     b.innerHTML=`<span class="name">${id.startsWith("TO")?"투고 "+id.slice(2):id.slice(1)}</span>
-      <span class="meta">${busy?timeStr(t.opened)+" 시작 · "+t.items.reduce((a,x)=>a+x.qty,0)+"개":"비어있음"}${unsent?' · <b style="color:var(--busy)">미전송 '+unsent+'</b>':""}</span>
+      ${busy&&custStr(t)?`<span class="meta"><b>${esc(custStr(t))}</b></span>`:""}<span class="meta">${busy?timeStr(t.opened)+" 시작 · "+t.items.reduce((a,x)=>a+x.qty,0)+"개":"비어있음"}${unsent?' · <b style="color:var(--busy)">미전송 '+unsent+'</b>':""}</span>
       ${busy?`<span class="amt num">${money(calc(t).total)}</span>`:""}`;
     b.onclick=()=>openTable(id); f.appendChild(b);
   });
@@ -420,7 +426,7 @@ function openTable(id){
   $("floor").hidden=true; $("order").hidden=false; renderOrder();
 }
 function back(){
-  const t=S.tables[cur]; if(t&&!t.items.length)delete S.tables[cur];
+  const t=S.tables[cur]; if(t&&!t.items.length){ if(t.cust){S.tables[cur]={items:[]};commitTable(cur);} delete S.tables[cur]; }
   if(!CLOUD)saveLocal(); cur=null; $("order").hidden=true; $("floor").hidden=false; renderFloor();
 }
 function renderOrder(){
@@ -428,7 +434,7 @@ function renderOrder(){
   if(!cats.includes(curCat))curCat=cats[0];
   $("cats").innerHTML=""; cats.forEach(c=>{const b=document.createElement("button");b.innerHTML=esc(c)+(CAT_EN[c]?`<em class="en">${CAT_EN[c]}</em>`:"");if(c===curCat)b.className="on";b.onclick=()=>{curCat=c;renderOrder()};$("cats").appendChild(b)});
   $("items").innerHTML=""; m.filter(x=>x.cat===curCat).forEach(x=>{const b=document.createElement("button");b.className="mi";b.innerHTML=`<b>${esc(x.name)}</b>${x.en?`<em class="en">${esc(x.en)}</em>`:""}<span class="num">${money(x.price)}</span>`;b.onclick=()=>addItem(x);$("items").appendChild(b)});
-  const t=S.tables[cur]; t.items.forEach(x=>{if(!x.en){const f=m.find(y=>y.name===x.name);if(f)x.en=f.en}}); $("ttl").textContent=label(cur); $("opened").textContent=timeStr(t.opened)+" 시작";
+  const t=S.tables[cur]; t.items.forEach(x=>{if(!x.en){const f=m.find(y=>y.name===x.name);if(f)x.en=f.en}}); $("ttl").textContent=label(cur); renderCust(t); $("opened").textContent=timeStr(t.opened)+" 시작";
   const L=$("lines"); L.innerHTML="";
   if(!t.items.length)L.innerHTML='<div class="empty">왼쪽 메뉴를 눌러 주문을 추가하세요.</div>';
   t.items.forEach((x,i)=>{
@@ -448,8 +454,8 @@ function renderOrder(){
   $("btnKitchen").disabled=!t.items.some(needK);
 }
 function addItem(m){
-  const t=S.tables[cur]; const ex=t.items.find(x=>x.id===m.id&&x.name===m.name&&!x.note&&!x.svc);
-  if(ex)ex.qty++; else t.items.push({id:m.id,name:m.name,en:m.en||"",zh:m.zh||"",price:m.price,qty:1,sent:0,note:""});
+  const t=S.tables[cur]; const auto=AUTO_SVC.includes(m.name); const ex=t.items.find(x=>x.id===m.id&&x.name===m.name&&!x.note&&!!x.svc===auto);
+  if(ex)ex.qty++; else t.items.push(Object.assign({id:m.id,name:m.name,en:m.en||"",zh:m.zh||"",price:m.price,qty:1,sent:0,note:""},auto?{svc:true}:{}));
   commitTable(cur); renderOrder();
 }
 
@@ -504,7 +510,8 @@ const BADGE_SVG=`<svg viewBox="24 96 360 300" width="200" height="167" style="di
 <g fill="#000"><circle cx="118" cy="230" r="4"></circle><circle cx="150" cy="212" r="4"></circle><circle cx="182" cy="230" r="4"></circle></g></g>
 <line x1="34" y1="320" x2="372" y2="320" stroke="#000" stroke-width="6" stroke-linecap="round"></line><text x="200" y="378" text-anchor="middle" font-family="Black Han Sans,sans-serif" font-size="44">두꺼비집</text></svg>`;
 function kitchenDoc(id,lines,isAdd,now){
-  const d=[{t:label(id),s:58,b:1,a:"c"},{t:isAdd?"*** 추가 주문 ***":"주방 주문서",s:30,b:1,a:"c"},
+  const cu=custStr(S.tables[id]);
+  const d=[{t:label(id),s:58,b:1,a:"c"},...(cu?[{t:cu,s:34,b:1,a:"c"}]:[]),{t:isAdd?"*** 추가 주문 ***":"주방 주문서",s:30,b:1,a:"c"},
     {t:now.toLocaleDateString("ko-KR")+" "+now.toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"}),s:24,a:"c"},{hr:1}];
   lines.forEach(x=>{ d.push({t:(x.qty-x.sent)+" × "+x.name+(x.svc?SVC_LBL:""),s:46,b:1,gap:10});
     if(x.en)d.push({t:x.en,s:28,b:1,ind:34}); if(x.note)d.push({t:"↳ "+x.note,s:32,b:1,ind:34}); });
@@ -514,7 +521,7 @@ function kitchenDoc(id,lines,isAdd,now){
 function receiptDoc(t,id,no,when,paid){
   const c=calc(t), s=S.settings, dt=new Date(when);
   const d=[{logo:1,size:330,wm:S.settings.watermark!==false},{t:s.addr,s:22,a:"c",gap:6},{t:s.phone,s:22,a:"c"},{hr:1},
-    {l:label(id),r:"#"+no,s:26},{l:dt.toLocaleDateString("en-US"),r:dt.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"}),s:26},{hr:1}];
+    {l:label(id),r:"#"+no,s:26},...(custStr(t)?[{t:custStr(t),s:24}]:[]),{l:dt.toLocaleDateString("en-US"),r:dt.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"}),s:26},{hr:1}];
   t.items.forEach(x=>{ d.push({l:x.qty+" "+x.name+(x.svc?SVC_LBL:""),r:money(lineAmt(x)),s:28}); const z=itemZh(x); const sub=[x.en,z].filter(Boolean).join(" · "); if(sub)d.push({t:sub,s:22,ind:26}); });
   d.push({hr:1},{l:"Subtotal",r:money(c.items),s:26},...(c.disc?[{l:DISC_LBL(c.discPct),r:"-"+money(c.disc),s:24}]:[]),...(c.svc?[{l:"Service items (taxable)",r:money(c.svc),s:22}]:[]),{l:"Tax "+s.tax+"%",r:money(c.tax),s:26},{l:"TOTAL",r:money(c.total),s:34,b:1});
   if(paid)d.push({t:"PAID",s:30,b:1,a:"c",gap:8});
@@ -576,7 +583,7 @@ function kitchenTicket(){
   const lines=t.items.filter(needK);
   const isAdd=t.items.some(x=>!isBar(x)&&x.sent>0);
   const html=`<div class="tk">
-    <div class="big">${label(cur)}</div>
+    <div class="big">${label(cur)}</div>${custStr(t)?`<div class="c b" style="font-size:18px">${esc(custStr(t))}</div>`:""}
     <div class="c b" style="font-size:20px">${isAdd?"*** 추가 주문 ***":"주방 주문서"}</div>
     <div class="c">${now.toLocaleDateString("ko-KR")} ${now.toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})}</div><hr>
     ${lines.map(x=>`<div class="kit">${x.qty-x.sent} × ${esc(x.name)}${x.svc?SVC_LBL:""}</div>${x.en?`<div class="kn">${esc(x.en)}</div>`:""}${x.note?`<div class="kn">↳ ${esc(x.note)}</div>`:""}`).join("")}
@@ -588,7 +595,7 @@ function receiptHtml(t,id,no,when,paid){
   const c=calc(t); const s=S.settings; const d=new Date(when);
   return `<div class="tk">
     ${BADGE_SVG}${S.settings.watermark!==false?`<div class="wm">${BADGE_SVG}</div>`:""}<div class="c">${esc(s.addr)}</div><div class="c">${esc(s.phone)}</div><hr>
-    <div class="r"><span>${label(id)}</span><span>#${no}</span></div>
+    <div class="r"><span>${label(id)}</span><span>#${no}</span></div>${custStr(t)?`<div>${esc(custStr(t))}</div>`:""}
     <div class="r"><span>${d.toLocaleDateString("en-US")}</span><span>${d.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})}</span></div><hr>
     ${t.items.map(x=>`<div class="r"><span>${x.qty} ${esc(x.name)}${x.svc?SVC_LBL:""}</span><span>${money(lineAmt(x))}</span></div>${(x.en||itemZh(x))?`<div style="margin:-2px 0 3px 14px">${esc([x.en,itemZh(x)].filter(Boolean).join(" · "))}</div>`:""}`).join("")}<hr>
     <div class="r"><span>Subtotal</span><span>${money(c.items)}</span></div>${c.disc?`<div class="r"><span>${DISC_LBL(c.discPct)}</span><span>-${money(c.disc)}</span></div>`:""}${c.svc?`<div class="r"><span>Service items (taxable)</span><span>${money(c.svc)}</span></div>`:""}
@@ -603,13 +610,14 @@ $("btnPaid").onclick=()=>{
   const t=S.tables[cur]; if(!t.items.length)return;
   const warn=t.items.some(needK)?"<p class='hint'>주방에 아직 안 보낸 메뉴가 있습니다.</p>":"";
   modal(`<h3>${label(cur)} 결제 완료 처리</h3>${warn}<p class="num" style="font-size:22px;font-weight:900;margin:0">${money(calc(t).total)}</p>
+    <label class="hint">카드 팁 (손님이 카드 영수증에 적은 팁, 없으면 비워 두세요)<input id="mTip" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0.00"></label>
     <div class="row"><button id="mNo">취소</button><button id="mCard">카드</button><button id="mCash">현금</button></div>
     <label class="hint"><input type="checkbox" id="mPr" style="width:auto"> 결제 영수증도 출력</label>`);
   $("mNo").onclick=closeModal;
-  const fin=async m=>{ const id=cur; const pr=$("mPr").checked; closeModal();
+  const fin=async m=>{ const id=cur; const pr=$("mPr").checked; const tip=Math.max(0,Math.round((parseFloat($("mTip").value)||0)*100)/100); closeModal();
     let no=S.tables[id]&&S.tables[id].no; if(!no)no=await nextReceiptNo();
     const tt=S.tables[id]; if(!tt||!tt.items.length)return; const c=calc(tt);
-    addSale({no,table:id,time:Date.now(),method:m,sub:c.sub,tax:c.tax,total:c.total,svc:c.svc,disc:c.disc,discPct:c.discPct,items:tt.items.map(x=>{const f=menu().find(y=>y.name===x.name);return {n:x.name+(x.svc?SVC_LBL:""),q:x.qty,p:x.svc?0:x.price,c:f?f.cat:"기타"}})});
+    addSale({no,table:id,time:Date.now(),method:m,sub:c.sub,tax:c.tax,total:c.total,svc:c.svc,disc:c.disc,discPct:c.discPct,tip,cust:custStr(tt),taxable:Math.round((c.items+c.svc)*100)/100,items:tt.items.map(x=>{const f=menu().find(y=>y.name===x.name);return {n:x.name+(x.svc?SVC_LBL:""),q:x.qty,p:x.svc?0:x.price,c:f?f.cat:"기타"}})});
     const w=Date.now(); const html=receiptHtml(tt,id,no,w,true); const rdoc=receiptDoc(tt,id,no,w,true); S.tables[id]={items:[]}; commitTable(id); if(cur===id)back(); if(pr)sendPrint(rdoc,html,"receipt",id); };
   $("mCard").onclick=()=>fin("카드"); $("mCash").onclick=()=>fin("현금");
 };
@@ -636,6 +644,78 @@ function moveTable(from,to){
   const moved=S.tables[to]; cur=to; commitTable(to);           // 새 테이블 먼저 저장
   S.tables[to]=S.tables[to]||moved; S.tables[from]={items:[]}; commitTable(from);  // 그 다음 원래 테이블 비우기
   renderOrder(); toast(`${label(from)} → ${label(to)} 이동했습니다`);
+}
+
+
+/* 투고 손님 정보 */
+const custStr=t=>{const c=t&&t.cust; if(!c)return ""; return [c.name,c.phone].filter(Boolean).join(" · ")};
+function renderCust(t){const b=$("btnCust"); const togo=String(cur).startsWith("TO"); b.hidden=!togo; $("opened").hidden=togo; if(!togo)return;
+  b.textContent=custStr(t)||"+ 손님 이름/전화"; b.onclick=()=>{const c=t.cust||{};
+    modal(`<h3>${label(cur)} 손님 정보</h3><label class="hint">이름<input id="cuN" value="${esc(c.name||"")}" placeholder="예: Kim"></label>
+      <label class="hint">전화번호<input id="cuP" type="tel" value="${esc(c.phone||"")}" placeholder="예: 323-000-0000"></label>
+      <div class="row"><button id="mNo">취소</button><button class="primary" id="mYes">저장</button></div>`);
+    $("cuN").focus(); $("mNo").onclick=closeModal;
+    $("mYes").onclick=()=>{const n=$("cuN").value.trim(), p=$("cuP").value.trim(); const tt=S.tables[cur]; if(!tt)return closeModal();
+      tt.cust=(n||p)?{name:n,phone:p}:null; if(!tt.cust)delete tt.cust; commitTable(cur); closeModal(); renderOrder();};
+  };}
+
+/* 하루 마감 보고서 */
+function closeData(list){
+  const r=k=>Math.round(list.reduce((t,x)=>t+(x[k]||0),0)*100)/100;
+  const m=(meth,k)=>Math.round(list.filter(x=>x.method===meth).reduce((t,x)=>t+(x[k]||0),0)*100)/100;
+  const cnt=meth=>list.filter(x=>x.method===meth).length;
+  const taxable=Math.round(list.reduce((t,x)=>t+(x.taxable!=null?x.taxable:(x.sub||0)+(x.disc||0)+(x.svc||0)),0)*100)/100;
+  return {n:list.length,sub:r("sub"),tax:r("tax"),total:r("total"),tip:r("tip"),disc:r("disc"),svc:r("svc"),taxable,
+    card:m("카드","total"),cardTip:m("카드","tip"),cardN:cnt("카드"),cash:m("현금","total"),cashTip:m("현금","tip"),cashN:cnt("현금")};
+}
+function closeTable(list){const d=closeData(list); const row=(l,v,c)=>`<tr${c?` class="${c}"`:""}><td>${l}</td><td>${v}</td></tr>`;
+  return `<table class="rep num ctab">
+   ${row("매출 · 세금","", "sec")}
+   ${row("음식·음료 매출 (세전, 할인 후)",money(d.sub))}
+   ${row("과세 대상 금액 (할인 전 + 서비스)",money(d.taxable))}
+   ${row("세금 "+S.settings.tax+"%",money(d.tax),"hl")}
+   ${row("매출 합계 (세금 포함, 팁 제외)",money(d.total),"hl")}
+   ${row("할인 합계",d.disc?"−"+money(d.disc):money(0))}
+   ${row("서비스로 준 금액 (정가)",money(d.svc))}
+   ${row("결제 방법별","", "sec")}
+   ${row(`카드 ${d.cardN}건 (세금 포함)`,money(d.card))}
+   ${row("카드 팁",money(d.cardTip),"hl")}
+   ${row("카드 결제 총액 (카드사 금액과 비교)",money(d.card+d.cardTip),"hl")}
+   ${row(`현금 ${d.cashN}건 (세금 포함)`,money(d.cash))}
+   ${d.cashTip?row("현금 팁",money(d.cashTip)):""}
+   ${row("팁 합계",money(d.tip),"hl")}
+  </table>`;
+}
+function closeDoc(list,title){const d=closeData(list); const L=(l,v,o)=>Object.assign({l,r:v,s:26},o||{});
+  return [{t:"하루 마감 보고서",s:40,b:1,a:"c"},{t:"Daily Close · Toad House",s:24,a:"c"},{t:title,s:24,a:"c"},{t:"출력 "+new Date().toLocaleString("ko-KR"),s:20,a:"c"},{hr:1},
+    {t:"매출 · 세금",s:28,b:1},L("매출 (세전, 할인 후)",money(d.sub)),L("과세 대상 금액",money(d.taxable)),L("세금 "+S.settings.tax+"%",money(d.tax),{b:1}),
+    L("매출 합계 (세금 포함)",money(d.total),{b:1,s:30}),L("할인 합계",d.disc?"-"+money(d.disc):money(0)),L("서비스 (정가)",money(d.svc)),{hr:1},
+    {t:"결제 방법별",s:28,b:1},L("카드 "+d.cardN+"건",money(d.card)),L("카드 팁",money(d.cardTip),{b:1}),L("카드 총액 (팁 포함)",money(d.card+d.cardTip),{b:1,s:30}),
+    L("현금 "+d.cashN+"건",money(d.cash)),...(d.cashTip?[L("현금 팁",money(d.cashTip))]:[]),{hr:1},
+    L("팁 합계",money(d.tip),{b:1,s:30}),L("결제 건수",String(d.n)),{hr:1}];
+}
+function closeHtml(list,title){const d=closeData(list); const r=(l,v,b)=>`<div class="r${b?" b":""}"><span>${l}</span><span>${v}</span></div>`;
+  return `<div class="tk"><div class="big" style="font-size:24px">하루 마감 보고서</div><div class="c">${esc(title)}</div><hr>
+   ${r("매출 (세전, 할인 후)",money(d.sub))}${r("과세 대상 금액",money(d.taxable))}${r("세금 "+S.settings.tax+"%",money(d.tax),1)}${r("매출 합계 (세금 포함)",money(d.total),1)}
+   ${r("할인 합계",d.disc?"-"+money(d.disc):money(0))}${r("서비스 (정가)",money(d.svc))}<hr>
+   ${r("카드 "+d.cardN+"건",money(d.card))}${r("카드 팁",money(d.cardTip),1)}${r("카드 총액 (팁 포함)",money(d.card+d.cardTip),1)}${r("현금 "+d.cashN+"건",money(d.cash))}<hr>
+   ${r("팁 합계",money(d.tip),1)}${r("결제 건수",d.n)}</div>`;
+}
+/* 엑셀(CSV) 내보내기 */
+function exportCsv(list,a,b){
+  const q=v=>{v=v==null?"":String(v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
+  const f2=n=>(Math.round((n||0)*100)/100).toFixed(2);
+  const head=["날짜","시간","영수증번호","테이블","손님","결제방법","매출(세전·할인후)","할인","서비스(정가)","과세대상","세금","합계(세금포함)","팁","결제총액(팁포함)","메뉴"];
+  const rows=list.map(x=>{const d=new Date(x.time); const taxable=x.taxable!=null?x.taxable:(x.sub||0)+(x.disc||0)+(x.svc||0);
+    return [d.toLocaleDateString("en-CA"),d.toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit"}),x.no,label(x.table),x.cust||"",x.method,
+      f2(x.sub),f2(x.disc),f2(x.svc),f2(taxable),f2(x.tax),f2(x.total),f2(x.tip),f2((x.total||0)+(x.tip||0)),(x.items||[]).map(i=>i.n+" x"+i.q).join("; ")]});
+  const d=closeData(list);
+  rows.push([],["합계","","","","","",f2(d.sub),f2(d.disc),f2(d.svc),f2(d.taxable),f2(d.tax),f2(d.total),f2(d.tip),f2(d.total+d.tip),""]);
+  const csv="﻿"+[head,...rows].map(r=>r.map(q).join(",")).join("\r\n");
+  const day=t=>new Date(t).toLocaleDateString("en-CA");
+  const name=`toadhouse-sales_${day(a)}${b-a>86400000?"_to_"+day(b-1):""}.csv`;
+  const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));
+  const el=document.createElement("a"); el.href=url; el.download=name; document.body.appendChild(el); el.click(); setTimeout(()=>{URL.revokeObjectURL(url); el.remove()},2000);
 }
 
 /* menu & settings */
@@ -709,7 +789,8 @@ async function showReport(){
      <div class="kpi"><span>결제 건수</span><b class="num">${list.length}</b></div>
      <div class="kpi"><span>평균 결제액</span><b class="num">${money(list.length?sum("total")/list.length:0)}</b></div>
    </div>
-   <table class="rep num"><tr><td>카드</td><td>${money(by("카드"))}</td></tr><tr><td>현금</td><td>${money(by("현금"))}</td></tr><tr><td>세금</td><td>${money(sum("tax"))}</td></tr></table>
+   ${closeTable(list)}
+   <div class="row" style="justify-content:flex-start;flex-wrap:wrap"><button id="rpPrint">마감 보고서 출력</button><button id="rpCsv">엑셀(CSV) 내보내기</button></div>
    ${top.length?`<p class="hint">많이 나간 메뉴: <b>${top.map(r=>esc(r.n)+" "+r.q+"개").join(" · ")}</b></p>`:""}
    <h4>메뉴별 판매</h4>${menuTable}
    <h4>결제 내역</h4>${txTable}
@@ -717,6 +798,8 @@ async function showReport(){
   $("mNo").onclick=closeModal;
   document.querySelectorAll(".seg [data-m]").forEach(btn=>btn.onclick=()=>{RP.mode=btn.dataset.m;showReport()});
   const shift=n=>{const d=new Date(RP.anchor); if(RP.mode==="month")d.setMonth(d.getMonth()+n); else d.setDate(d.getDate()+(RP.mode==="week"?7:1)*n); RP.anchor=d.getTime(); showReport();};
+  $("rpPrint").onclick=()=>{const d=closeDoc(list,periodLabel(RP.mode,a,b)); sendPrint(d,closeHtml(list,periodLabel(RP.mode,a,b)),"report","")};
+  $("rpCsv").onclick=()=>exportCsv(list,a,b);
   $("rpPrev").onclick=()=>shift(-1); $("rpNext").onclick=()=>shift(1); $("rpToday").onclick=()=>{RP.anchor=Date.now();showReport()};
 }
 $("btnSales").onclick=()=>{RP.anchor=Date.now();showReport()};
