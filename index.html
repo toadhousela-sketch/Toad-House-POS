@@ -87,6 +87,7 @@ header.top h1 small{font-weight:500;color:var(--muted);font-size:13px}
 .empty{padding:40px 16px;color:var(--muted);text-align:center}
 .tot{padding:12px 16px;border-top:1px solid var(--line);display:grid;grid-template-columns:1fr auto;gap:4px}
 .tot .big{font-size:22px;font-weight:900}
+.discBtns{display:flex;align-items:center;gap:6px;color:var(--muted)} .discBtns button{padding:4px 10px;font-size:13px;min-height:0} .discBtns button.on{background:var(--toad);color:var(--toad-ink);border-color:var(--toad)} #disc{color:var(--danger)}
 .acts{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 16px 16px}
 .acts .wide{grid-column:1/-1;padding:14px;font-size:17px}
 
@@ -184,6 +185,7 @@ table.rep tr.cat td{font-weight:700;background:var(--bg);padding-top:10px}
     <div id="lines"></div>
     <div class="tot">
       <span>소계</span><span class="num" id="sub"></span>
+      <span class="discBtns">학생 할인 <button data-d="0">없음</button><button data-d="5">5%</button><button data-d="10">10%</button></span><span class="num" id="disc"></span>
       <span>세금 <span id="taxLbl"></span></span><span class="num" id="tax"></span>
       <span class="big">합계</span><span class="big num" id="total"></span>
     </div>
@@ -381,7 +383,11 @@ const needK=x=>!isBar(x)&&x.qty>x.sent;
 const lineAmt=x=>x.svc?0:x.price*x.qty;
 const SVC_LBL=" (서비스)";
 // 서비스(무료) 품목: 손님 금액은 $0, 세금은 원래 가격 기준으로 계산
-function calc(t){const it=t?.items||[];const sub=it.reduce((a,x)=>a+lineAmt(x),0);const svc=it.reduce((a,x)=>a+(x.svc?x.price*x.qty:0),0);const tax=Math.round((sub+svc)*S.settings.tax)/100;return{sub,svc,tax,total:sub+tax}}
+// 학생 할인(t.disc 5/10%): 음식(주류·음료 제외) 금액에서만 할인, 세금은 할인 전 금액 기준
+function calc(t){const it=t?.items||[];const items=it.reduce((a,x)=>a+lineAmt(x),0);const svc=it.reduce((a,x)=>a+(x.svc?x.price*x.qty:0),0);
+  const discPct=t?.disc||0;const food=it.reduce((a,x)=>a+(isBar(x)?0:lineAmt(x)),0);const disc=Math.round(food*discPct)/100;
+  const sub=Math.round((items-disc)*100)/100;const tax=Math.round((items+svc)*S.settings.tax)/100;return{items,disc,discPct,sub,svc,tax,total:Math.round((sub+tax)*100)/100}}
+const DISC_LBL=p=>"Student discount "+p+"% (food)";
 function toggleSvc(t,i){
   const x=t.items[i]; const want=!x.svc;
   let y=t.items.find((z,j)=>j!==i&&z.name===x.name&&z.price===x.price&&!z.note&&!x.note&&!!z.svc===want);
@@ -435,7 +441,8 @@ function renderOrder(){
     d.querySelector('[data-a=s]').onclick=()=>{toggleSvc(t,i); commitTable(cur); renderOrder()};
     L.appendChild(d);
   });
-  const c=calc(t); $("sub").textContent=money(c.sub); $("tax").textContent=money(c.tax); $("taxLbl").textContent=`(${S.settings.tax}%)`; $("total").textContent=money(c.total);
+  document.querySelectorAll(".discBtns [data-d]").forEach(b=>{b.classList.toggle("on",+b.dataset.d===(t.disc||0));b.onclick=()=>{t.disc=+b.dataset.d||0;commitTable(cur);renderOrder()}});
+  const c=calc(t); $("sub").textContent=money(c.items); $("disc").textContent=c.disc?"−"+money(c.disc):""; $("tax").textContent=money(c.tax); $("taxLbl").textContent=`(${S.settings.tax}%)`; $("total").textContent=money(c.total);
   $("btnKitchen").disabled=!t.items.some(needK);
 }
 function addItem(m){
@@ -507,7 +514,7 @@ function receiptDoc(t,id,no,when,paid){
   const d=[{logo:1,size:330,wm:S.settings.watermark!==false},{t:s.addr,s:22,a:"c",gap:6},{t:s.phone,s:22,a:"c"},{hr:1},
     {l:label(id),r:"#"+no,s:26},{l:dt.toLocaleDateString("en-US"),r:dt.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"}),s:26},{hr:1}];
   t.items.forEach(x=>{ d.push({l:x.qty+" "+x.name+(x.svc?SVC_LBL:""),r:money(lineAmt(x)),s:28}); const z=itemZh(x); const sub=[x.en,z].filter(Boolean).join(" · "); if(sub)d.push({t:sub,s:22,ind:26}); });
-  d.push({hr:1},{l:"Subtotal",r:money(c.sub),s:26},...(c.svc?[{l:"Service items (taxable)",r:money(c.svc),s:22}]:[]),{l:"Tax "+s.tax+"%",r:money(c.tax),s:26},{l:"TOTAL",r:money(c.total),s:34,b:1});
+  d.push({hr:1},{l:"Subtotal",r:money(c.items),s:26},...(c.disc?[{l:DISC_LBL(c.discPct),r:"-"+money(c.disc),s:24}]:[]),...(c.svc?[{l:"Service items (taxable)",r:money(c.svc),s:22}]:[]),{l:"Tax "+s.tax+"%",r:money(c.tax),s:26},{l:"TOTAL",r:money(c.total),s:34,b:1});
   if(paid)d.push({t:"PAID",s:30,b:1,a:"c",gap:8});
   d.push({hr:1},{t:"감사합니다! Thank you! 谢谢!",s:26,a:"c"});
   return d;
@@ -582,7 +589,7 @@ function receiptHtml(t,id,no,when,paid){
     <div class="r"><span>${label(id)}</span><span>#${no}</span></div>
     <div class="r"><span>${d.toLocaleDateString("en-US")}</span><span>${d.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})}</span></div><hr>
     ${t.items.map(x=>`<div class="r"><span>${x.qty} ${esc(x.name)}${x.svc?SVC_LBL:""}</span><span>${money(lineAmt(x))}</span></div>${(x.en||itemZh(x))?`<div style="margin:-2px 0 3px 14px">${esc([x.en,itemZh(x)].filter(Boolean).join(" · "))}</div>`:""}`).join("")}<hr>
-    <div class="r"><span>Subtotal</span><span>${money(c.sub)}</span></div>${c.svc?`<div class="r"><span>Service items (taxable)</span><span>${money(c.svc)}</span></div>`:""}
+    <div class="r"><span>Subtotal</span><span>${money(c.items)}</span></div>${c.disc?`<div class="r"><span>${DISC_LBL(c.discPct)}</span><span>-${money(c.disc)}</span></div>`:""}${c.svc?`<div class="r"><span>Service items (taxable)</span><span>${money(c.svc)}</span></div>`:""}
     <div class="r"><span>Tax ${s.tax}%</span><span>${money(c.tax)}</span></div>
     <div class="r b"><span>TOTAL</span><span>${money(c.total)}</span></div>
     ${paid?`<div class="c b">PAID</div>`:""}
@@ -600,7 +607,7 @@ $("btnPaid").onclick=()=>{
   const fin=async m=>{ const id=cur; const pr=$("mPr").checked; closeModal();
     let no=S.tables[id]&&S.tables[id].no; if(!no)no=await nextReceiptNo();
     const tt=S.tables[id]; if(!tt||!tt.items.length)return; const c=calc(tt);
-    addSale({no,table:id,time:Date.now(),method:m,sub:c.sub,tax:c.tax,total:c.total,svc:c.svc,items:tt.items.map(x=>{const f=menu().find(y=>y.name===x.name);return {n:x.name+(x.svc?SVC_LBL:""),q:x.qty,p:x.svc?0:x.price,c:f?f.cat:"기타"}})});
+    addSale({no,table:id,time:Date.now(),method:m,sub:c.sub,tax:c.tax,total:c.total,svc:c.svc,disc:c.disc,discPct:c.discPct,items:tt.items.map(x=>{const f=menu().find(y=>y.name===x.name);return {n:x.name+(x.svc?SVC_LBL:""),q:x.qty,p:x.svc?0:x.price,c:f?f.cat:"기타"}})});
     const w=Date.now(); const html=receiptHtml(tt,id,no,w,true); const rdoc=receiptDoc(tt,id,no,w,true); S.tables[id]={items:[]}; commitTable(id); if(cur===id)back(); if(pr)sendPrint(rdoc,html,"receipt",id); };
   $("mCard").onclick=()=>fin("카드"); $("mCash").onclick=()=>fin("현금");
 };
