@@ -92,6 +92,7 @@ header.top h1 small{font-weight:500;color:var(--muted);font-size:13px}
 .acts{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 16px 16px}
 .mvGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;max-height:55vh;overflow:auto;margin:8px 0} .mvT{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:10px;text-align:left} .mvT em{font-style:normal;font-size:12px;color:var(--muted)} .mvT.busy em{color:var(--busy)}
 .acts .wide{grid-column:1/-1;padding:14px;font-size:17px}
+.acts .listBtn{background:#2E5A88;color:#fff;border-color:#2E5A88;font-weight:800}
 
 /* modal */
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:16px;z-index:20}
@@ -207,11 +208,11 @@ table.rep tr.cat td{font-weight:700;background:var(--bg);padding-top:10px}
     </div>
     <div class="acts">
       <button class="warn wide" id="btnKitchen">주방으로 보내기 (출력)</button>
+      <button class="wide listBtn" id="btnList">주문 목록 출력</button>
       <button id="btnReceipt">손님 영수증 출력</button>
       <button class="primary" id="btnPaid">결제 완료</button>
-      <button id="btnList">주문 목록 출력</button>
       <button id="btnMove">테이블 이동</button>
-      <button class="danger" id="btnClear" style="grid-column:1/-1">주문 전체 취소</button>
+      <button class="danger" id="btnClear">주문 전체 취소</button>
     </div>
   </aside>
 </main>
