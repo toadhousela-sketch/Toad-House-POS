@@ -228,6 +228,13 @@ const DEFAULT_MENU=`# 형식: 카테고리 | 메뉴 이름 | 가격 | 영문 이
 구이류 | 두꺼비 껍데기 | 25 | Pork Skin
 구이류 | 두꺼비 차돌 | 40 | Beef Brisket
 구이류 | 두꺼비 주물럭 | 55 | Marinated Beef Ribs
+소주/전통주 | 새로 | 13 | Soju Saero
+소주/전통주 | 처음처럼 | 13 | Soju Chum Churum
+소주/전통주 | 참이슬 | 13 | Soju Chamisul
+소주/전통주 | 이즈백 | 13 | Soju Is Back
+소주/전통주 | 국순당 생막걸리 | 13 | Draft Rice Wine
+소주/전통주 | 백세주 | 17 | Bekseju
+소주/전통주 | 명작 복분자 | 19 | Bokbunja
 안주류 | 육회 | 30 | Beef Tartare
 안주류 | 해물파전 | 25 | Seafood Pancake
 안주류 | 오징어볶음 | 25 | Spicy Squid
@@ -248,13 +255,6 @@ const DEFAULT_MENU=`# 형식: 카테고리 | 메뉴 이름 | 가격 | 영문 이
 식사류 | 볶음밥 (1인) | 10 | Fried Rice (1)
 식사류 | 볶음밥 (2인) | 16 | Fried Rice (2)
 식사류 | 공기밥 | 2 | Steamed Rice
-소주/전통주 | 새로 | 13 | Soju Saero
-소주/전통주 | 처음처럼 | 13 | Soju Chum Churum
-소주/전통주 | 참이슬 | 13 | Soju Chamisul
-소주/전통주 | 이즈백 | 13 | Soju Is Back
-소주/전통주 | 국순당 생막걸리 | 13 | Draft Rice Wine
-소주/전통주 | 백세주 | 17 | Bekseju
-소주/전통주 | 명작 복분자 | 19 | Bokbunja
 맥주 | 크러쉬 | 10 | Beer Krush
 맥주 | 클라우드 | 10 | Beer Kloud
 맥주 | 카스 | 10 | Beer Cass
@@ -348,6 +348,8 @@ function startCloud(){
     // first device to connect seeds the shared menu & settings from this device
     db.ref("pos/settings").once("value").then(s=>{ if(!s.exists()){ commitSettings(); db.ref("pos/nextNo").set(S.settings.nextNo||1001); } });
     db.ref("pos/settings").on("value",s=>{ if(s.exists()){ S.settings=defaults({settings:s.val()}).settings; refresh(); } });
+    db.ref("pos/migrations/sojuAfterGrill").once("value").then(m=>{ if(m.exists())return;
+      db.ref("pos/menuText").transaction(t=>t?moveCatAfter(t,"소주/전통주","구이류"):undefined).then(()=>db.ref("pos/migrations/sojuAfterGrill").set(Date.now())); });
     db.ref("pos/menuText").on("value",s=>{ if(s.exists()){ S.menuText=s.val(); refresh();
       if(!/\|\s*공기밥\s*\|/.test(S.menuText)) db.ref("pos/menuText").transaction(t=>t&&!/\|\s*공기밥\s*\|/.test(t)?addRiceLine(t):undefined); } });
     db.ref("pos/employees").on("value",s=>{ S.emps=s.val()||{}; });
@@ -400,6 +402,10 @@ const isBar=x=>{const f=menu().find(y=>y.name===x.name);return !!f&&NO_KITCHEN.i
 const needK=x=>!isBar(x)&&x.qty>x.sent;
 const lineAmt=x=>x.svc?0:x.price*x.qty;
 const AUTO_SVC=["공기밥"]; // 기본으로 서비스($0, 세금은 부과)로 들어가는 메뉴
+// 카테고리 하나를 다른 카테고리 바로 뒤로 옮기기 (줄 내용은 그대로)
+function moveCatAfter(t,cat,after){const L=t.split("\n");const cof=l=>{const m=l.match(/^\s*([^#|][^|]*?)\s*\|/);return m?m[1]:null};
+  const mv=L.filter(l=>cof(l)===cat); if(!mv.length)return t; const rest=L.filter(l=>cof(l)!==cat);
+  let k=-1; rest.forEach((l,i)=>{if(cof(l)===after)k=i}); if(k<0)return t; rest.splice(k+1,0,...mv); return rest.join("\n");}
 function addRiceLine(t){const L=t.split("\n");let k=-1;L.forEach((l,i)=>{if(/^\s*식사류\s*\|/.test(l))k=i});const line="식사류 | 공기밥 | 2 | Steamed Rice";if(k<0)L.push(line);else L.splice(k+1,0,line);return L.join("\n")}
 const SVC_LBL=" (서비스)";
 // 서비스(무료) 품목: 손님 금액은 $0, 세금은 원래 가격 기준으로 계산
