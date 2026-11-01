@@ -186,6 +186,7 @@ table.rep tr.cat td{font-weight:700;background:var(--bg);padding-top:10px}
   <button class="ghost" id="btnClock">출퇴근 · Clock</button>
   <button class="ghost" id="btnSales">매출 보기</button>
   <button class="ghost" id="btnMenu">메뉴/설정</button>
+  <button class="ghost" id="btnHome">전체 테이블</button>
 </header>
 
 <main id="floor"></main>
@@ -666,6 +667,7 @@ $("btnPaid").onclick=()=>{
 };
 $("btnClear").onclick=()=>confirmBox(`${label(cur)} 주문을 모두 지울까요?`,()=>{S.tables[cur]={items:[]};commitTable(cur);back()});
 $("btnBack").onclick=back;
+$("btnHome").onclick=()=>{ if($("modalBox").dataset.lock!=="1")closeModal(); if(cur)back(); else renderFloor(); };
 // 테이블 이동 / 합치기
 $("btnMove").onclick=()=>{
   const from=cur; const t=S.tables[from]; if(!t||!t.items.length)return;
