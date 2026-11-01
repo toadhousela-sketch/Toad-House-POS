@@ -242,12 +242,12 @@ const DEFAULT_MENU=`# 형식: 카테고리 | 메뉴 이름 | 가격 | 영문 이
 안주류 | 비빔국수 | 20 | Noodles w/ Vegetables
 안주류 | 김치전 | 10 | Kimchi Pancake
 안주류 | 계란 후라이 | 2 | Fried Eggs
-식사류 | 고추장찌개 (1인) | 25 | Spicy Pepper Paste Soup (1)
-식사류 | 고추장찌개 (2인) | 45 | Spicy Pepper Paste Soup (2)
-식사류 | 김치찌개 (1인) | 25 | Kimchi Soup (1)
-식사류 | 김치찌개 (2인) | 45 | Kimchi Soup (2)
-식사류 | 된장찌개 (1인) | 20 | Soybean Paste Soup (1)
-식사류 | 된장찌개 (2인) | 40 | Soybean Paste Soup (2)
+식사류 | 고추장찌개 (Medium) | 25 | Spicy Pepper Paste Soup (Medium)
+식사류 | 고추장찌개 (Large) | 45 | Spicy Pepper Paste Soup (Large)
+식사류 | 김치찌개 (Medium) | 25 | Kimchi Soup (Medium)
+식사류 | 김치찌개 (Large) | 45 | Kimchi Soup (Large)
+식사류 | 된장찌개 (Medium) | 20 | Soybean Paste Soup (Medium)
+식사류 | 된장찌개 (Large) | 40 | Soybean Paste Soup (Large)
 식사류 | 동태매운탕 | 45 | Spicy Pollack Soup
 식사류 | 계란찜 | 7 | Steamed Eggs
 식사류 | 볶음밥 (1인) | 10 | Fried Rice (1)
@@ -342,13 +342,16 @@ function startCloud(){
     // first device to connect seeds the shared menu & settings from this device
     db.ref("pos/settings").once("value").then(s=>{ if(!s.exists()){ commitSettings(); db.ref("pos/nextNo").set(S.settings.nextNo||1001); } });
     db.ref("pos/settings").on("value",s=>{ if(s.exists()){ S.settings=defaults({settings:s.val()}).settings; refresh(); } });
-    const mig=(key,fn)=>db.ref("pos/migrations/"+key).once("value").then(m=>{ if(m.exists())return;
-      return db.ref("pos/menuText").transaction(t=>t?fn(t):undefined).then(()=>db.ref("pos/migrations/"+key).set(Date.now())); });
-    mig("sojuMerged",mergeSoju).then(()=>mig("beerMerged",mergeBeer));
-    db.ref("pos/migrations/sojuAfterGrill").once("value").then(m=>{ if(m.exists())return;
-      db.ref("pos/menuText").transaction(t=>t?moveCatAfter(t,"소주/전통주","구이류"):undefined).then(()=>db.ref("pos/migrations/sojuAfterGrill").set(Date.now())); });
-    db.ref("pos/menuText").on("value",s=>{ if(s.exists()){ S.menuText=s.val(); refresh();
-      if(!/\|\s*공기밥\s*\|/.test(S.menuText)) db.ref("pos/menuText").transaction(t=>t&&!/\|\s*공기밥\s*\|/.test(t)?addRiceLine(t):undefined); } });
+    // 메뉴 자동 변경(한 번만): 메뉴 값을 받은 뒤 아직 안 된 변경만 적용
+    const MENU_MIGS=[["m2_sojuAfterGrill",t=>moveCatAfter(t,"소주/전통주","구이류")],["m2_sojuMerged",mergeSoju],["m2_beerMerged",mergeBeer],["m2_stewSizes",stewSizes]];
+    let migStarted=false;
+    const runMenuMigs=()=>{ if(migStarted)return; migStarted=true;
+      db.ref("pos/migrations").once("value").then(m=>{ const done=m.val()||{}; const todo=MENU_MIGS.filter(([k])=>!done[k]); if(!todo.length)return;
+        return db.ref("pos/menuText").transaction(t=>{ if(t==null)return t; let x=t; todo.forEach(([,f])=>{x=f(x)}); return x; })
+          .then(r=>{ if(r&&r.committed&&r.snapshot&&r.snapshot.val()){ const u={}; todo.forEach(([k])=>u[k]=Date.now()); return db.ref("pos/migrations").update(u); } });
+      }).catch(e=>console.warn("menu migration",e)); };
+    db.ref("pos/menuText").on("value",s=>{ if(s.exists()){ S.menuText=s.val(); refresh(); runMenuMigs();
+      if(!/\|\s*공기밥\s*\|/.test(S.menuText)) db.ref("pos/menuText").transaction(t=>t==null||/\|\s*공기밥\s*\|/.test(t)?t:addRiceLine(t)); } });
     db.ref("pos/employees").on("value",s=>{ S.emps=s.val()||{}; });
     db.ref("pos/tables").on("value",s=>{
       const v=s.val()||{}; const keep=cur&&S.tables[cur]&&!S.tables[cur].items.length?S.tables[cur]:null;
@@ -385,7 +388,7 @@ function loginScreen(mode){
 
 const menu=()=>S.menuText.split("\n").map(l=>l.trim()).filter(l=>l&&!l.startsWith("#")).map((l,i)=>{const[c,n,p,e,z]=l.split("|").map(x=>(x||"").trim());return{id:i,cat:c||"기타",name:n||c,price:parseFloat(p)||0,en:e||"",zh:z||zhOf(n||c)}});
 const ZH={"두꺼비 삼겹살": "黑猪五花肉", "두꺼비 항정살": "猪颊肉", "두꺼비 목살": "猪梅花肉", "두꺼비 껍데기": "猪皮", "두꺼비 차돌": "牛胸肉", "두꺼비 주물럭": "调味牛排骨", "육회": "生拌牛肉", "해물파전": "海鲜葱饼", "오징어볶음": "辣炒鱿鱼", "골뱅이무침": "凉拌海螺", "돼지불고기": "韩式烤猪肉", "양념두부": "调味豆腐", "비빔국수": "拌面", "김치전": "泡菜饼", "계란 후라이": "煎蛋", "고추장찌개": "辣椒酱汤", "김치찌개": "泡菜汤", "된장찌개": "大酱汤", "동태매운탕": "辣鳕鱼汤", "계란찜": "蒸蛋", "볶음밥": "炒饭", "소주": "烧酒", "맥주": "啤酒", "새로": "烧酒", "처음처럼": "烧酒", "참이슬": "烧酒", "이즈백": "烧酒", "국순당 생막걸리": "米酒", "백세주": "百岁酒", "명작 복분자": "覆盆子酒", "크러쉬": "啤酒 克拉什", "클라우드": "啤酒 克劳德", "카스": "啤酒 凯狮", "테라": "啤酒 泰拉", "코카콜라": "可乐", "코크 제로": "零度可乐", "다이어트 코크": "健怡可乐", "세븐업": "七喜"};
-const zhOf=n=>{const b=String(n).replace(/\s*\((1|2)인\)$/,"");const z=ZH[b];if(!z)return "";const m=String(n).match(/\((1|2)인\)$/);return m?z+"("+m[1]+"人)":z};
+const zhOf=n=>{const b=String(n).replace(/\s*\(((1|2)인|Medium|Large)\)$/,"");const z=ZH[b];if(!z)return "";const m=String(n).match(/\(((1|2)인|Medium|Large)\)$/);if(!m)return z;const sz={Medium:"中",Large:"大"};return z+"("+(sz[m[1]]||m[2]+"人")+")"};
 const CAT_EN={"구이류":"Grilled","안주류":"Entrees","식사류":"Soups & Rice","소주/전통주":"Soju, Beer & Rice Wine","맥주":"Beer","음료":"Soft Drinks"};
 const $=id=>document.getElementById(id);
 const money=n=>"$"+(Math.round(n*100)/100).toFixed(2);
@@ -416,6 +419,10 @@ function mergeBeer(t){const L=t.split("\n");const cat=l=>l.split("|")[0].trim();
   let k=out.findIndex(l=>{const p=l.split("|").map(x=>x.trim());return p[0]==="소주/전통주"&&p[1]==="소주"});
   if(k<0)out.forEach((l,i)=>{if(cat(l)==="소주/전통주")k=i});
   const line="소주/전통주 | 맥주 | "+price+" | Beer"; if(k<0)out.push(line); else out.splice(k+1,0,line); return out.join("\n");}
+// 찌개 (1인)/(2인) → (Medium)/(Large)
+function stewSizes(t){return t.split("\n").map(l=>{const p=l.split("|");if(p.length<3||l.trim().startsWith("#")||!/찌개\s*\((1|2)인\)/.test(p[1]))return l;
+  const big=/\(2인\)/.test(p[1]); p[1]=p[1].replace(/\((1|2)인\)/,big?"(Large)":"(Medium)"); if(p[3])p[3]=p[3].replace(/\((1|2)\)\s*$/,big?"(Large) ":"(Medium) ").replace(/\s+$/," ");
+  return p.join("|").replace(/\s+$/,"")}).join("\n");}
 function addRiceLine(t){const L=t.split("\n");let k=-1;L.forEach((l,i)=>{if(/^\s*식사류\s*\|/.test(l))k=i});const line="식사류 | 공기밥 | 2 | Steamed Rice";if(k<0)L.push(line);else L.splice(k+1,0,line);return L.join("\n")}
 const SVC_LBL=" (서비스)";
 // 서비스(무료) 품목: 손님 금액은 $0, 세금은 원래 가격 기준으로 계산
