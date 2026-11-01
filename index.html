@@ -473,8 +473,8 @@ function back(){
 }
 function renderOrder(){
   const m=menu(); const cats=[...new Set(m.map(x=>x.cat))];
-  const ALL="__all__"; if(curCat!==ALL&&!cats.includes(curCat))curCat=cats[0];
-  $("cats").innerHTML=""; [...cats,ALL].forEach(c=>{if(c===ALL){const b=document.createElement("button");b.innerHTML=`전체<em class="en">All</em>`;if(curCat===ALL)b.className="on";b.onclick=()=>{curCat=ALL;renderOrder()};$("cats").appendChild(b);return;}const b=document.createElement("button");b.innerHTML=esc(c)+(CAT_EN[c]?`<em class="en">${CAT_EN[c]}</em>`:"");if(c===curCat)b.className="on";b.onclick=()=>{curCat=c;renderOrder()};$("cats").appendChild(b)});
+  const ALL="__all__"; if(curCat!==ALL&&!cats.includes(curCat))curCat=ALL;
+  $("cats").innerHTML=""; [ALL,...cats].forEach(c=>{if(c===ALL){const b=document.createElement("button");b.innerHTML=`전체<em class="en">All</em>`;if(curCat===ALL)b.className="on";b.onclick=()=>{curCat=ALL;renderOrder()};$("cats").appendChild(b);return;}const b=document.createElement("button");b.innerHTML=esc(c)+(CAT_EN[c]?`<em class="en">${CAT_EN[c]}</em>`:"");if(c===curCat)b.className="on";b.onclick=()=>{curCat=c;renderOrder()};$("cats").appendChild(b)});
   $("items").innerHTML=""; let lastCat=null; m.filter(x=>curCat===ALL||x.cat===curCat).forEach(x=>{
     if(curCat===ALL&&x.cat!==lastCat){lastCat=x.cat;const h=document.createElement("div");h.className="icat";h.textContent=x.cat+(CAT_EN[x.cat]?" · "+CAT_EN[x.cat]:"");$("items").appendChild(h);}
     const b=document.createElement("button");b.className="mi";b.innerHTML=`<b>${esc(x.name)}</b>${x.en?`<em class="en">${esc(x.en)}</em>`:""}<span class="num">${money(x.price)}</span>`;b.onclick=()=>addItem(x);$("items").appendChild(b)});
