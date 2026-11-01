@@ -209,8 +209,9 @@ table.rep tr.cat td{font-weight:700;background:var(--bg);padding-top:10px}
       <button class="warn wide" id="btnKitchen">주방으로 보내기 (출력)</button>
       <button id="btnReceipt">손님 영수증 출력</button>
       <button class="primary" id="btnPaid">결제 완료</button>
+      <button id="btnList">주문 목록 출력</button>
       <button id="btnMove">테이블 이동</button>
-      <button class="danger" id="btnClear">주문 전체 취소</button>
+      <button class="danger" id="btnClear" style="grid-column:1/-1">주문 전체 취소</button>
     </div>
   </aside>
 </main>
@@ -612,7 +613,7 @@ function sendPrint(doc,html,kind,id){
   if(!useCloudPrint()){ doPrint(html); return; }
   let png; try{ png=docToPNG(doc); }catch(e){ doPrint(html); return; }
   db.ref("pos/printQueue").push({png,kind,table:id,created:Date.now()})
-    .then(()=>{ if(printerOnline())toast(kind==="kitchen"?"주방 프린터로 보냈습니다":"영수증을 프린터로 보냈습니다");
+    .then(()=>{ if(printerOnline())toast(kind==="kitchen"?"주방 프린터로 보냈습니다":kind==="list"?"주문 목록을 프린터로 보냈습니다":"영수증을 프린터로 보냈습니다");
       else toast("프린터가 꺼져 있는 것 같습니다. 켜지면 자동으로 출력됩니다.",true); })
     .catch(()=>{ toast("프린터로 보내지 못했습니다. 인쇄 창으로 출력합니다.",true); doPrint(html); });
 }
@@ -649,6 +650,20 @@ function receiptHtml(t,id,no,when,paid){
     <hr><div class="c">감사합니다! Thank you! 谢谢!</div></div>`;
 }
 $("btnKitchen").onclick=kitchenTicket;
+// 보드에 꽂아 두는 전체 주문 목록 (가격 없음)
+function listDoc(id,t,now){
+  const cu=custStr(t); const n=t.items.reduce((a,x)=>a+x.qty,0);
+  const d=[{t:label(id),s:58,b:1,a:"c"},...(cu?[{t:cu,s:30,b:1,a:"c"}]:[]),{t:"주문 목록",s:30,b:1,a:"c"},
+    {t:timeStr(t.opened)+" 시작 · 출력 "+now.toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"}),s:24,a:"c"},{hr:1}];
+  t.items.forEach(x=>{ d.push({t:x.qty+" × "+x.name+(x.svc?SVC_LBL:""),s:42,b:1,gap:8}); if(x.en)d.push({t:x.en,s:26,ind:34}); if(x.note)d.push({t:"↳ "+x.note,s:30,b:1,ind:34}); });
+  d.push({hr:1},{t:n+"개",s:26,a:"c"}); return d;
+}
+$("btnList").onclick=()=>{ const id=cur, t=S.tables[id]; if(!t||!t.items.length)return; const now=new Date(); const cu=custStr(t);
+  const html=`<div class="tk"><div class="big">${label(id)}</div>${cu?`<div class="c b" style="font-size:18px">${esc(cu)}</div>`:""}<div class="c b" style="font-size:20px">주문 목록</div>
+    <div class="c">${timeStr(t.opened)} 시작 · 출력 ${now.toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})}</div><hr>
+    ${t.items.map(x=>`<div class="kit">${x.qty} × ${esc(x.name)}${x.svc?SVC_LBL:""}</div>${x.en?`<div class="kn">${esc(x.en)}</div>`:""}${x.note?`<div class="kn">↳ ${esc(x.note)}</div>`:""}`).join("")}
+    <hr><div class="c">${t.items.reduce((a,x)=>a+x.qty,0)}개</div></div>`;
+  sendPrint(listDoc(id,t,now),html,"list",id); };
 $("btnReceipt").onclick=async()=>{const id=cur; let t=S.tables[id]; if(!t||!t.items.length)return; if(!t.no){const n=await nextReceiptNo(); t=S.tables[id]; if(!t)return; t.no=n; commitTable(id)} const w=Date.now(); sendPrint(receiptDoc(t,id,t.no,w,false),receiptHtml(t,id,t.no,w,false),"receipt",id)};
 $("btnPaid").onclick=()=>{
   const t=S.tables[cur]; if(!t.items.length)return;
