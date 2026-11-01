@@ -230,6 +230,7 @@ const DEFAULT_MENU=`# 형식: 카테고리 | 메뉴 이름 | 가격 | 영문 이
 구이류 | 두꺼비 주물럭 | 55 | Marinated Beef Ribs
 소주/전통주 | 소주 | 13 | Soju
 소주/전통주 | 맥주 | 10 | Beer
+소주/전통주 | 소다 | 3 | Soda
 소주/전통주 | 국순당 생막걸리 | 13 | Draft Rice Wine
 소주/전통주 | 백세주 | 17 | Bekseju
 소주/전통주 | 명작 복분자 | 19 | Bokbunja
@@ -252,11 +253,7 @@ const DEFAULT_MENU=`# 형식: 카테고리 | 메뉴 이름 | 가격 | 영문 이
 식사류 | 계란찜 | 7 | Steamed Eggs
 식사류 | 볶음밥 (1인) | 10 | Fried Rice (1)
 식사류 | 볶음밥 (2인) | 16 | Fried Rice (2)
-식사류 | 공기밥 | 2 | Steamed Rice
-음료 | 코카콜라 | 3 | Coke
-음료 | 코크 제로 | 3 | Coke Zero
-음료 | 다이어트 코크 | 3 | Diet Coke
-음료 | 세븐업 | 3 | 7 Up`;
+식사류 | 공기밥 | 2 | Steamed Rice`;
 
 /* ===== Firebase 설정: 가게 Firebase 프로젝트 값으로 채우면 기기 간 공유 모드가 켜집니다 ===== */
 const FB_CONFIG = {
@@ -343,7 +340,7 @@ function startCloud(){
     db.ref("pos/settings").once("value").then(s=>{ if(!s.exists()){ commitSettings(); db.ref("pos/nextNo").set(S.settings.nextNo||1001); } });
     db.ref("pos/settings").on("value",s=>{ if(s.exists()){ S.settings=defaults({settings:s.val()}).settings; refresh(); } });
     // 메뉴 자동 변경(한 번만): 메뉴 값을 받은 뒤 아직 안 된 변경만 적용
-    const MENU_MIGS=[["m2_sojuAfterGrill",t=>moveCatAfter(t,"소주/전통주","구이류")],["m2_sojuMerged",mergeSoju],["m2_beerMerged",mergeBeer],["m2_stewSizes",stewSizes]];
+    const MENU_MIGS=[["m2_sojuAfterGrill",t=>moveCatAfter(t,"소주/전통주","구이류")],["m2_sojuMerged",mergeSoju],["m2_beerMerged",mergeBeer],["m2_stewSizes",stewSizes],["m2_soda",mergeSoda]];
     let migStarted=false;
     const runMenuMigs=()=>{ if(migStarted)return; migStarted=true;
       db.ref("pos/migrations").once("value").then(m=>{ const done=m.val()||{}; const todo=MENU_MIGS.filter(([k])=>!done[k]); if(!todo.length)return;
@@ -387,9 +384,9 @@ function loginScreen(mode){
 }
 
 const menu=()=>S.menuText.split("\n").map(l=>l.trim()).filter(l=>l&&!l.startsWith("#")).map((l,i)=>{const[c,n,p,e,z]=l.split("|").map(x=>(x||"").trim());return{id:i,cat:c||"기타",name:n||c,price:parseFloat(p)||0,en:e||"",zh:z||zhOf(n||c)}});
-const ZH={"두꺼비 삼겹살": "黑猪五花肉", "두꺼비 항정살": "猪颊肉", "두꺼비 목살": "猪梅花肉", "두꺼비 껍데기": "猪皮", "두꺼비 차돌": "牛胸肉", "두꺼비 주물럭": "调味牛排骨", "육회": "生拌牛肉", "해물파전": "海鲜葱饼", "오징어볶음": "辣炒鱿鱼", "골뱅이무침": "凉拌海螺", "돼지불고기": "韩式烤猪肉", "양념두부": "调味豆腐", "비빔국수": "拌面", "김치전": "泡菜饼", "계란 후라이": "煎蛋", "고추장찌개": "辣椒酱汤", "김치찌개": "泡菜汤", "된장찌개": "大酱汤", "동태매운탕": "辣鳕鱼汤", "계란찜": "蒸蛋", "볶음밥": "炒饭", "소주": "烧酒", "맥주": "啤酒", "새로": "烧酒", "처음처럼": "烧酒", "참이슬": "烧酒", "이즈백": "烧酒", "국순당 생막걸리": "米酒", "백세주": "百岁酒", "명작 복분자": "覆盆子酒", "크러쉬": "啤酒 克拉什", "클라우드": "啤酒 克劳德", "카스": "啤酒 凯狮", "테라": "啤酒 泰拉", "코카콜라": "可乐", "코크 제로": "零度可乐", "다이어트 코크": "健怡可乐", "세븐업": "七喜"};
+const ZH={"두꺼비 삼겹살": "黑猪五花肉", "두꺼비 항정살": "猪颊肉", "두꺼비 목살": "猪梅花肉", "두꺼비 껍데기": "猪皮", "두꺼비 차돌": "牛胸肉", "두꺼비 주물럭": "调味牛排骨", "육회": "生拌牛肉", "해물파전": "海鲜葱饼", "오징어볶음": "辣炒鱿鱼", "골뱅이무침": "凉拌海螺", "돼지불고기": "韩式烤猪肉", "양념두부": "调味豆腐", "비빔국수": "拌面", "김치전": "泡菜饼", "계란 후라이": "煎蛋", "고추장찌개": "辣椒酱汤", "김치찌개": "泡菜汤", "된장찌개": "大酱汤", "동태매운탕": "辣鳕鱼汤", "계란찜": "蒸蛋", "볶음밥": "炒饭", "소주": "烧酒", "맥주": "啤酒", "소다": "汽水", "새로": "烧酒", "처음처럼": "烧酒", "참이슬": "烧酒", "이즈백": "烧酒", "국순당 생막걸리": "米酒", "백세주": "百岁酒", "명작 복분자": "覆盆子酒", "크러쉬": "啤酒 克拉什", "클라우드": "啤酒 克劳德", "카스": "啤酒 凯狮", "테라": "啤酒 泰拉", "코카콜라": "可乐", "코크 제로": "零度可乐", "다이어트 코크": "健怡可乐", "세븐업": "七喜"};
 const zhOf=n=>{const b=String(n).replace(/\s*\(((1|2)인|Medium|Large)\)$/,"");const z=ZH[b];if(!z)return "";const m=String(n).match(/\(((1|2)인|Medium|Large)\)$/);if(!m)return z;const sz={Medium:"中",Large:"大"};return z+"("+(sz[m[1]]||m[2]+"人")+")"};
-const CAT_EN={"구이류":"Grilled","안주류":"Entrees","식사류":"Soups & Rice","소주/전통주":"Soju, Beer & Rice Wine","맥주":"Beer","음료":"Soft Drinks"};
+const CAT_EN={"구이류":"Grilled","안주류":"Entrees","식사류":"Soups & Rice","소주/전통주":"Soju, Beer & Soda","맥주":"Beer","음료":"Soft Drinks"};
 const $=id=>document.getElementById(id);
 const money=n=>"$"+(Math.round(n*100)/100).toFixed(2);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -423,6 +420,14 @@ function mergeBeer(t){const L=t.split("\n");const cat=l=>l.split("|")[0].trim();
 function stewSizes(t){return t.split("\n").map(l=>{const p=l.split("|");if(p.length<3||l.trim().startsWith("#")||!/찌개\s*\((1|2)인\)/.test(p[1]))return l;
   const big=/\(2인\)/.test(p[1]); p[1]=p[1].replace(/\((1|2)인\)/,big?"(Large)":"(Medium)"); if(p[3])p[3]=p[3].replace(/\((1|2)\)\s*$/,big?"(Large) ":"(Medium) ").replace(/\s+$/," ");
   return p.join("|").replace(/\s+$/,"")}).join("\n");}
+// "음료" 카테고리를 없애고 소주/전통주 안의 "소다" 하나로 (맥주 옆)
+function mergeSoda(t){const L=t.split("\n");const cat=l=>l.split("|")[0].trim(); const isC=l=>!l.trim().startsWith("#");
+  const drinks=L.filter(l=>isC(l)&&cat(l)==="음료"); if(!drinks.length)return t;
+  const price=parseFloat(drinks[0].split("|")[2])||3; const out=L.filter(l=>!isC(l)||cat(l)!=="음료");
+  const nm=l=>{const p=l.split("|").map(x=>x.trim());return p[0]==="소주/전통주"?p[1]:null};
+  if(out.some(l=>nm(l)==="소다"))return out.join("\n");
+  let k=out.findIndex(l=>nm(l)==="맥주"); if(k<0)k=out.findIndex(l=>nm(l)==="소주"); if(k<0)out.forEach((l,i)=>{if(cat(l)==="소주/전통주")k=i});
+  const line="소주/전통주 | 소다 | "+price+" | Soda"; if(k<0)out.push(line); else out.splice(k+1,0,line); return out.join("\n");}
 function addRiceLine(t){const L=t.split("\n");let k=-1;L.forEach((l,i)=>{if(/^\s*식사류\s*\|/.test(l))k=i});const line="식사류 | 공기밥 | 2 | Steamed Rice";if(k<0)L.push(line);else L.splice(k+1,0,line);return L.join("\n")}
 const SVC_LBL=" (서비스)";
 // 서비스(무료) 품목: 손님 금액은 $0, 세금은 원래 가격 기준으로 계산
