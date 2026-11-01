@@ -234,15 +234,6 @@ const DEFAULT_MENU=`# 형식: 카테고리 | 메뉴 이름 | 가격 | 영문 이
 소주/전통주 | 국순당 생막걸리 | 13 | Draft Rice Wine
 소주/전통주 | 백세주 | 17 | Bekseju
 소주/전통주 | 명작 복분자 | 19 | Bokbunja
-안주류 | 육회 | 30 | Beef Tartare
-안주류 | 해물파전 | 25 | Seafood Pancake
-안주류 | 오징어볶음 | 25 | Spicy Squid
-안주류 | 골뱅이무침 | 28 | Seasoned Sea Snails
-안주류 | 돼지불고기 | 30 | Pork Bulgogi
-안주류 | 양념두부 | 10 | Seasoned Tofu
-안주류 | 비빔국수 | 20 | Noodles w/ Vegetables
-안주류 | 김치전 | 10 | Kimchi Pancake
-안주류 | 계란 후라이 | 2 | Fried Eggs
 식사류 | 고추장찌개 (Medium) | 25 | Spicy Pepper Paste Soup (Medium)
 식사류 | 고추장찌개 (Large) | 45 | Spicy Pepper Paste Soup (Large)
 식사류 | 김치찌개 (Medium) | 25 | Kimchi Soup (Medium)
@@ -253,7 +244,16 @@ const DEFAULT_MENU=`# 형식: 카테고리 | 메뉴 이름 | 가격 | 영문 이
 식사류 | 계란찜 | 7 | Steamed Eggs
 식사류 | 볶음밥 (1인) | 10 | Fried Rice (1)
 식사류 | 볶음밥 (2인) | 16 | Fried Rice (2)
-식사류 | 공기밥 | 2 | Steamed Rice`;
+식사류 | 공기밥 | 2 | Steamed Rice
+안주류 | 육회 | 30 | Beef Tartare
+안주류 | 해물파전 | 25 | Seafood Pancake
+안주류 | 오징어볶음 | 25 | Spicy Squid
+안주류 | 골뱅이무침 | 28 | Seasoned Sea Snails
+안주류 | 돼지불고기 | 30 | Pork Bulgogi
+안주류 | 양념두부 | 10 | Seasoned Tofu
+안주류 | 비빔국수 | 20 | Noodles w/ Vegetables
+안주류 | 김치전 | 10 | Kimchi Pancake
+안주류 | 계란 후라이 | 2 | Fried Eggs`;
 
 /* ===== Firebase 설정: 가게 Firebase 프로젝트 값으로 채우면 기기 간 공유 모드가 켜집니다 ===== */
 const FB_CONFIG = {
@@ -340,7 +340,7 @@ function startCloud(){
     db.ref("pos/settings").once("value").then(s=>{ if(!s.exists()){ commitSettings(); db.ref("pos/nextNo").set(S.settings.nextNo||1001); } });
     db.ref("pos/settings").on("value",s=>{ if(s.exists()){ S.settings=defaults({settings:s.val()}).settings; refresh(); } });
     // 메뉴 자동 변경(한 번만): 메뉴 값을 받은 뒤 아직 안 된 변경만 적용
-    const MENU_MIGS=[["m2_sojuAfterGrill",t=>moveCatAfter(t,"소주/전통주","구이류")],["m2_sojuMerged",mergeSoju],["m2_beerMerged",mergeBeer],["m2_stewSizes",stewSizes],["m2_soda",mergeSoda]];
+    const MENU_MIGS=[["m2_sojuAfterGrill",t=>moveCatAfter(t,"소주/전통주","구이류")],["m2_sojuMerged",mergeSoju],["m2_beerMerged",mergeBeer],["m2_stewSizes",stewSizes],["m2_soda",mergeSoda],["m2_mealAfterSoju",t=>moveCatAfter(t,"식사류","소주/전통주")]];
     let migStarted=false;
     const runMenuMigs=()=>{ if(migStarted)return; migStarted=true;
       db.ref("pos/migrations").once("value").then(m=>{ const done=m.val()||{}; const todo=MENU_MIGS.filter(([k])=>!done[k]); if(!todo.length)return;
