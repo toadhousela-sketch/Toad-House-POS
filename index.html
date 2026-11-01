@@ -779,17 +779,17 @@ const workMs=(sh,now)=>Math.max(0,((sh.out||now||Date.now())-sh.time)-brMs(sh,no
 const empList=()=>Object.entries(S.emps||{}).map(([id,e])=>Object.assign({id},e)).sort((a,b)=>a.name.localeCompare(b.name));
 async function openShift(empId){ const l=await shiftsBetween(Date.now()-20*3600000,Date.now()+60000); return l.filter(x=>x.e===empId&&!x.out).sort((a,b)=>b.time-a.time)[0]||null; }
 
-$("btnClock").onclick=()=>pinPad("출퇴근 기록 · Time Clock","직원 번호(PIN)를 누르세요 · Enter your PIN",async pin=>{
+$("btnClock").onclick=()=>pinPad("출퇴근 · Time Clock · Reloj","직원 번호(PIN) · Enter your PIN · Ingrese su PIN",async pin=>{
   const e=empList().find(x=>x.active!==false&&String(x.pin)===pin);
-  if(!e){ toast("번호가 맞지 않습니다 · Wrong PIN",true); return false; }
+  if(!e){ toast("번호가 맞지 않습니다 · Wrong PIN · PIN incorrecto",true); return false; }
   clockScreen(e); return true;
 },true);
 
 function pinPad(title,hint,onOk,showMgr){
   let v="";
   modal(`<h3>${title}</h3><p class="clkNow num" id="clkT"></p><p class="hint" style="text-align:center">${hint}</p><div class="pinD num" id="pinD"></div>
-    <div class="pad">${[1,2,3,4,5,6,7,8,9].map(n=>`<button data-k="${n}">${n}</button>`).join("")}<button data-k="c">지움<small>Clear</small></button><button data-k="0">0</button><button data-k="ok" class="primary">확인<small>OK</small></button></div>
-    <div class="row">${showMgr?'<button class="ghost" id="mMgr" style="margin-right:auto">관리자 · Manager</button>':""}<button id="mNo">닫기 · Close</button></div>`);
+    <div class="pad">${[1,2,3,4,5,6,7,8,9].map(n=>`<button data-k="${n}">${n}</button>`).join("")}<button data-k="c">지움<small>Clear · Borrar</small></button><button data-k="0">0</button><button data-k="ok" class="primary">확인<small>OK</small></button></div>
+    <div class="row">${showMgr?'<button class="ghost" id="mMgr" style="margin-right:auto">관리자 · Manager</button>':""}<button id="mNo">닫기 · Close · Cerrar</button></div>`);
   const tick=()=>{const el=$("clkT"); if(el)el.textContent=new Date().toLocaleString("en-US",{weekday:"short",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});}; tick();
   const iv=setInterval(()=>{ if(!$("clkT"))clearInterval(iv); else tick(); },15000);
   const show=()=>$("pinD").textContent="•".repeat(v.length)||" ";
@@ -799,23 +799,23 @@ function pinPad(title,hint,onOk,showMgr){
     if(k==="c")v=v.slice(0,-1); else if(k==="ok"){ if(!v)return; const ok=await onOk(v); if(ok===false){v="";} } else if(v.length<6)v+=k; if($("pinD"))show();});
 }
 async function clockScreen(e){
-  modal(`<h3>${esc(e.name)}</h3><p class="hint">확인 중… · Checking…</p>`);
-  let sh; try{ sh=await openShift(e.id); }catch(err){ modal(`<h3>연결 오류 · Connection error</h3><p class="hint">인터넷 연결을 확인해 주세요. · Please check the internet connection.</p><div class="row"><button id="mNo">닫기 · Close</button></div>`); $("mNo").onclick=closeModal; return; }
+  modal(`<h3>${esc(e.name)}</h3><p class="hint">확인 중… · Checking… · Verificando…</p>`);
+  let sh; try{ sh=await openShift(e.id); }catch(err){ modal(`<h3>연결 오류 · Connection error · Error de conexión</h3><p class="hint">인터넷 연결을 확인해 주세요. · Please check the internet connection. · Revise la conexión a internet.</p><div class="row"><button id="mNo">닫기 · Close · Cerrar</button></div>`); $("mNo").onclick=closeModal; return; }
   const now=Date.now(); const onBreak=sh&&(sh.br||[]).some(x=>!x[1]);
   const stale=sh&&now-sh.time>16*3600000;
   let status, btns;
-  if(!sh||stale){ status=stale?`<p class="hint" style="color:var(--danger)">${new Date(sh.time).toLocaleDateString("en-US")} 퇴근 기록이 없습니다. 관리자에게 알려 주세요.<br>No clock-out on this day. Please tell the manager.</p>`:""; status+=`<p>지금은 <b>퇴근 상태</b>입니다. · You are <b>clocked out</b>.</p>`; btns=`<button class="primary" data-a="in">출근<small>Clock In</small></button>`; }
-  else if(onBreak){ status=`<p><b>휴식 중 · On break</b><br>${tstr(sh.time)} 출근 · Clocked in</p>`; btns=`<button class="primary" data-a="be">휴식 끝<small>End Break</small></button>`; }
-  else { status=`<p><b>근무 중 · Working</b><br>${tstr(sh.time)} 출근 · Clocked in · ${hm(workMs(sh,now))}</p>`; btns=`<button data-a="bs">휴식 시작<small>Start Break</small></button><button class="danger" data-a="out">퇴근<small>Clock Out</small></button>`; }
+  if(!sh||stale){ status=stale?`<p class="hint" style="color:var(--danger)">${new Date(sh.time).toLocaleDateString("en-US")} 퇴근 기록이 없습니다. 관리자에게 알려 주세요.<br>No clock-out on this day. Please tell the manager.<br>No hay salida registrada ese día. Avise al gerente.</p>`:""; status+=`<p>지금은 <b>퇴근 상태</b>입니다. · You are <b>clocked out</b>.<br><b>Fuera de turno</b>.</p>`; btns=`<button class="primary" data-a="in">출근<small>Clock In · Entrada</small></button>`; }
+  else if(onBreak){ status=`<p><b>휴식 중 · On break · En descanso</b><br>${tstr(sh.time)} 출근 · Clocked in · Entrada</p>`; btns=`<button class="primary" data-a="be">휴식 끝<small>End Break · Terminar descanso</small></button>`; }
+  else { status=`<p><b>근무 중 · Working · Trabajando</b><br>${tstr(sh.time)} 출근 · Clocked in · Entrada · ${hm(workMs(sh,now))}</p>`; btns=`<button data-a="bs">휴식 시작<small>Start Break · Iniciar descanso</small></button><button class="danger" data-a="out">퇴근<small>Clock Out · Salida</small></button>`; }
   modal(`<h3>${esc(e.name)}</h3><p class="clkNow num">${new Date(now).toLocaleString("en-US",{weekday:"short",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})}</p>${status}
-    <div class="clkBig">${btns}</div><div class="row"><button id="mNo">취소 · Cancel</button></div>`);
+    <div class="clkBig">${btns}</div><div class="row"><button id="mNo">취소 · Cancel · Cancelar</button></div>`);
   $("mNo").onclick=closeModal;
   document.querySelectorAll(".clkBig [data-a]").forEach(b=>b.onclick=()=>{const a=b.dataset.a, t=Date.now();
-    if(a==="in"){ dbPush("shifts",{e:e.id,n:e.name,time:t,br:[]}); toast(`${e.name} 출근 · Clocked in ${tstr(t)}`); }
+    if(a==="in"){ dbPush("shifts",{e:e.id,n:e.name,time:t,br:[]}); toast(`${e.name} 출근 · Clocked in · Entrada ${tstr(t)}`); }
     else { const br=(sh.br||[]).map(x=>x.slice());
-      if(a==="bs"){ br.push([t,0]); dbSet("shifts",sh.k,Object.assign({},strip(sh),{br})); toast(`${e.name} 휴식 시작 · Break started ${tstr(t)}`); }
-      if(a==="be"){ const o=br.find(x=>!x[1]); if(o)o[1]=t; dbSet("shifts",sh.k,Object.assign({},strip(sh),{br})); toast(`${e.name} 휴식 끝 · Break ended ${tstr(t)}`); }
-      if(a==="out"){ const o=br.find(x=>!x[1]); if(o)o[1]=t; const ns=Object.assign({},strip(sh),{br,out:t}); dbSet("shifts",sh.k,ns); toast(`${e.name} 퇴근 · Clocked out ${tstr(t)} · ${hm(workMs(ns))}`); } }
+      if(a==="bs"){ br.push([t,0]); dbSet("shifts",sh.k,Object.assign({},strip(sh),{br})); toast(`${e.name} 휴식 시작 · Break started · Descanso ${tstr(t)}`); }
+      if(a==="be"){ const o=br.find(x=>!x[1]); if(o)o[1]=t; dbSet("shifts",sh.k,Object.assign({},strip(sh),{br})); toast(`${e.name} 휴식 끝 · Break ended · Fin de descanso ${tstr(t)}`); }
+      if(a==="out"){ const o=br.find(x=>!x[1]); if(o)o[1]=t; const ns=Object.assign({},strip(sh),{br,out:t}); dbSet("shifts",sh.k,ns); toast(`${e.name} 퇴근 · Clocked out · Salida ${tstr(t)} · ${hm(workMs(ns))}`); } }
     closeModal(); });
 }
 const strip=sh=>{const o=Object.assign({},sh); delete o.k; return o;};
