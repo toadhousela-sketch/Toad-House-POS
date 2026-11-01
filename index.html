@@ -56,9 +56,10 @@ header.top h1 small{font-weight:500;color:var(--muted);font-size:13px}
 .sect{grid-column:1/-1;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:4px}
 
 /* order screen */
-#order{display:grid;grid-template-columns:1fr 380px;height:calc(100dvh - 61px - env(safe-area-inset-top,0px))}
+#order{display:grid;grid-template-columns:1fr 380px;height:calc(100dvh - var(--hdr,61px))}
 .acts{padding-bottom:calc(16px + env(safe-area-inset-bottom,0px))!important}
 @media (max-width:1100px){#order{grid-template-columns:1fr 330px}}
+#order{grid-template-rows:minmax(0,1fr)} #menuSide,#check{min-height:0} #items{flex:1;min-height:0} #lines{min-height:60px}
 #menuSide{display:flex;flex-direction:column;min-width:0;border-right:1px solid var(--line)}
 #cats{display:flex;gap:8px;padding:12px 16px;overflow-x:auto;border-bottom:1px solid var(--line)}
 #cats button{white-space:nowrap}
@@ -209,8 +210,8 @@ table.rep tr.cat td{font-weight:700;background:var(--bg);padding-top:10px}
     <div class="acts">
       <button class="warn wide" id="btnKitchen">주방으로 보내기 (출력)</button>
       <button class="wide listBtn" id="btnList">주문 목록 출력</button>
-      <button id="btnReceipt">손님 영수증 출력</button>
-      <button class="primary" id="btnPaid">결제 완료</button>
+      <button class="wide" id="btnReceipt">손님 영수증 출력</button>
+      <button class="primary wide" id="btnPaid">결제 완료</button>
       <button id="btnMove">테이블 이동</button>
       <button class="danger" id="btnClear">주문 전체 취소</button>
     </div>
@@ -929,6 +930,10 @@ function timesheetCsv(list,sum,a,b){
   const el=document.createElement("a"); el.href=url; el.download=`toadhouse-hours_${day(a)}_to_${day(b-1)}.csv`; document.body.appendChild(el); el.click(); setTimeout(()=>{URL.revokeObjectURL(url); el.remove()},2000);
 }
 
+// 위쪽 메뉴줄 높이에 맞춰 주문 화면 높이 조정 (세로 화면에서 두 줄이 돼도 버튼이 가려지지 않게)
+const fitHdr=()=>{const h=document.querySelector("header.top"); if(h)document.documentElement.style.setProperty("--hdr",Math.ceil(h.getBoundingClientRect().bottom)+"px");};
+addEventListener("resize",fitHdr); addEventListener("orientationchange",()=>setTimeout(fitHdr,300)); setTimeout(fitHdr,0);
+try{ new ResizeObserver(fitHdr).observe(document.querySelector("header.top")); }catch(e){ setInterval(fitHdr,2000); }
 /* menu & settings */
 $("btnMenu").onclick=()=>{
   const s=S.settings;
