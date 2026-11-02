@@ -113,6 +113,7 @@ table.rep tr.cat td{font-weight:700;background:var(--bg);padding-top:10px}
 .seg button{padding:6px 12px;border-radius:8px}
 .seg button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 #ttl,#btnBack,#opened{white-space:nowrap} #btnCust{font-size:13px;padding:4px 10px;min-height:0;max-width:200px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-left:6px}
+.tipEd{font-size:12px;padding:2px 8px;min-height:0;margin-left:4px}
 .ctab td:first-child{color:var(--muted)} .ctab tr.hl td{font-weight:800;color:var(--ink)} .ctab tr.sec td{padding-top:12px;font-weight:800;color:var(--ink);border-bottom:1px solid var(--line)}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}
 .kpi{border:1px solid var(--line);border-radius:10px;padding:10px}
@@ -315,9 +316,13 @@ function addSale(sale){
 async function salesBetween(a,b){
   if(CLOUD&&db){
     const snap=await db.ref("pos/sales").orderByChild("time").startAt(a).endAt(b-1).once("value");
-    const out=[]; snap.forEach(c=>{out.push(c.val())}); return out;
+    const out=[]; snap.forEach(c=>{out.push(Object.assign({},c.val(),{_k:c.key}))}); return out;
   }
-  return S.sales.filter(x=>x.time>=a&&x.time<b);
+  return S.sales.map((x,i)=>Object.assign({},x,{_k:i})).filter(x=>x.time>=a&&x.time<b);
+}
+async function setSaleTip(k,tip){
+  if(CLOUD&&db) return db.ref("pos/sales/"+k+"/tip").set(tip);
+  if(S.sales[k]){ S.sales[k].tip=tip; saveLocal(); }
 }
 async function salesSince(ts){
   if(CLOUD&&db){
@@ -998,7 +1003,7 @@ async function showReport(){
      g.rs.map(r=>`<tr><td>${esc(r.n)}</td><td class="q">${r.q}</td><td>${money(r.amt)}</td></tr>`).join("")).join("")}</table>`:"<p class='hint'>이 기간에 판매된 메뉴가 없습니다.</p>";
   const multiDay=RP.mode!=="day";
   const txTable=list.length?`<table class="rep num">${list.slice().reverse().map(x=>`<tr><td>#${x.no} ${label(x.table)} · ${multiDay?new Date(x.time).toLocaleDateString("ko-KR",{month:"numeric",day:"numeric"})+" ":""}${timeStr(x.time)} · ${x.method}
-      <div class="sub">${(x.items||[]).map(i=>esc(i.n)+" ×"+i.q).join(", ")}</div></td><td>${money(x.total)}</td></tr>`).join("")}</table>`:"<p class='hint'>결제된 건이 없습니다.</p>";
+      <div class="sub">${(x.items||[]).map(i=>esc(i.n)+" ×"+i.q).join(", ")}</div></td><td>${money(x.total)}<div class="sub">팁 ${money(x.tip||0)} <button class="ghost tipEd" data-tip="${esc(String(x._k))}">팁 수정</button></div></td></tr>`).join("")}</table>`:"<p class='hint'>결제된 건이 없습니다.</p>";
   modal(`<h3>매출 보기</h3>
    <div class="seg">${[["day","하루"],["week","주"],["month","월"]].map(([m,l])=>`<button data-m="${m}" class="${RP.mode===m?"on":""}">${l}</button>`).join("")}
      <span class="spacer"></span><button id="rpPrev">◀</button><button id="rpToday">오늘</button><button id="rpNext">▶</button></div>
@@ -1020,6 +1025,15 @@ async function showReport(){
   const shift=n=>{const d=new Date(RP.anchor); if(RP.mode==="month")d.setMonth(d.getMonth()+n); else d.setDate(d.getDate()+(RP.mode==="week"?7:1)*n); RP.anchor=d.getTime(); showReport();};
   $("rpPrint").onclick=()=>{const d=closeDoc(list,periodLabel(RP.mode,a,b)); sendPrint(d,closeHtml(list,periodLabel(RP.mode,a,b)),"report","")};
   $("rpCsv").onclick=()=>exportCsv(list,a,b);
+  document.querySelectorAll("[data-tip]").forEach(btn=>btn.onclick=()=>{const x=list.find(y=>String(y._k)===btn.dataset.tip); if(!x)return;
+    modal(`<h3>#${x.no} ${label(x.table)} 팁 수정</h3><p class="hint">${new Date(x.time).toLocaleString("ko-KR")} · ${x.method} · 결제 ${money(x.total)}</p>
+      <label class="hint">팁 금액<input id="tpV" type="number" inputmode="decimal" step="0.01" min="0" value="${(x.tip||0).toFixed(2)}"></label>
+      <div class="row"><button id="mNo">취소</button><button class="primary" id="mYes">저장</button></div>`);
+    $("tpV").focus(); $("tpV").select(); $("mNo").onclick=showReport;
+    $("mYes").onclick=async()=>{const v=Math.max(0,Math.round((parseFloat($("tpV").value)||0)*100)/100);
+      try{ await setSaleTip(x._k,v); toast(`#${x.no} 팁 ${money(v)} 저장했습니다`); }catch(e){ toast("저장하지 못했습니다. 인터넷 연결을 확인해 주세요.",true); }
+      showReport();};
+  });
   $("rpPrev").onclick=()=>shift(-1); $("rpNext").onclick=()=>shift(1); $("rpToday").onclick=()=>{RP.anchor=Date.now();showReport()};
 }
 $("btnSales").onclick=()=>{RP.anchor=Date.now();showReport()};
