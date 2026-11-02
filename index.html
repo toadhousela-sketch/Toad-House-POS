@@ -124,6 +124,13 @@ header.top h1 small{font-weight:500;color:var(--muted);font-size:13px}
   .acts .wide{grid-column:auto;padding:11px 6px;font-size:15px}
   .acts #btnMove,.acts #btnClear{padding:6px;min-height:0;font-size:14px}
 }
+@media (max-width:700px),(max-height:560px){
+  #order{height:auto;grid-template-rows:auto}
+  #check{min-height:auto}
+  #lines{flex:none;overflow:visible;min-height:0}
+  #menuSide{min-height:0}
+  #menuSide #items{flex:none;max-height:55vh;max-height:55dvh;overflow-y:auto}
+}
 /* modal */
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:16px;z-index:20}
 .box{background:var(--panel);border-radius:14px;max-width:640px;width:100%;max-height:90vh;overflow:auto;padding:20px;display:flex;flex-direction:column;gap:12px}
