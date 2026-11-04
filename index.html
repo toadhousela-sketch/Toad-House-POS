@@ -84,7 +84,7 @@ header.top h1 small{font-weight:500;color:var(--muted);font-size:13px}
 .ln .ctl{grid-column:1/-1;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .ln .ctl button{padding:4px 12px;border-radius:8px}
 .pill{font-size:11px;padding:2px 8px;border-radius:99px;border:1px solid currentColor;font-weight:700;letter-spacing:.03em}
-.pill.new{color:var(--busy)} .pill.sent{color:var(--sent)} .pill.bar{color:var(--muted,#888)}
+.pill.new{color:var(--busy)} .pill[data-a=k]{cursor:pointer;padding:3px 9px} .pill.sent{color:var(--sent)} .pill.bar{color:var(--muted,#888)}
 .pill.svc{color:#2E6B45;margin-right:6px} .ctl button.svcOn{border-color:#2E6B45;color:#2E6B45} s.was{opacity:.5;font-weight:400}
 .note{grid-column:1/-1;color:var(--busy);font-size:13px}
 .empty{padding:40px 16px;color:var(--muted);text-align:center}
@@ -114,7 +114,7 @@ header.top h1 small{font-weight:500;color:var(--muted);font-size:13px}
   .ln .ctl button[data-a=m],.ln .ctl button[data-a=p]{min-width:58px;min-height:52px;font-size:26px;font-weight:700;padding:4px 8px}
   .ln .pr{grid-column:3;grid-row:1;font-size:17px}
   .ln .note{grid-row:2;font-size:12px}
-  .stL{display:block;margin-top:1px;white-space:nowrap} .stL .pill{font-size:10px;padding:0 6px;margin-right:3px} .ln .pr s.was{display:none}
+  .stL{display:block;margin-top:1px;white-space:nowrap} .stL .pill{font-size:10px;padding:0 6px;margin-right:3px} .stL .pill[data-a=k]{font-size:12px;padding:3px 10px;display:inline-block;margin-top:2px} .ln .pr s.was{display:none}
   .tot{padding:6px 12px;gap:2px 8px;font-size:14px}
   .tot .big{font-size:20px}
   .tot{grid-template-columns:auto 1fr auto auto;align-items:center;column-gap:8px}
@@ -535,7 +535,7 @@ function renderOrder(){
   if(!t.items.length)L.innerHTML='<div class="empty">왼쪽 메뉴를 눌러 주문을 추가하세요.</div>';
   t.items.forEach((x,i)=>{
     const d=document.createElement("div"); d.className="ln";
-    const st=isBar(x)?`<span class="pill bar">주방 안 감</span>`:x.qty>x.sent?`<span class="pill new">주방 미전송 ${x.qty-x.sent}</span>`:`<span class="pill sent">전송됨</span>`;
+    const st=isBar(x)?`<span class="pill bar">주방 안 감</span>`:x.qty>x.sent?`<span class="pill new" data-a="k" role="button">주방 미전송 ${x.qty-x.sent} ›</span>`:`<span class="pill sent">전송됨</span>`;
     d.innerHTML=`<span class="nm">${esc(x.name)} × <span class="num">${x.qty}</span>${x.en?`<em class="en">${esc(x.en)}</em>`:""}<span class="stL">${x.svc?`<span class="pill svc">서비스 $0</span>`:""}${st}</span></span><span class="pr num">${x.svc?`<s class="was">${money(x.price*x.qty)}</s> `:""}${money(lineAmt(x))}</span>
       ${x.note?`<span class="note">↳ ${esc(x.note)}</span>`:""}
       <span class="ctl"><button data-a="m">−</button><button data-a="p">+</button><button data-a="n">메모</button><button data-a="s" class="${x.svc?"svcOn":""}">${x.svc?"서비스 취소":"서비스"}</button><span class="spacer"></span><span class="stP">${x.svc?`<span class="pill svc">서비스 $0</span>`:""}${st}</span></span>`;
@@ -543,6 +543,9 @@ function renderOrder(){
     d.querySelector('[data-a=p]').onclick=()=>{x.qty++; commitTable(cur); renderOrder()};
     d.querySelector('[data-a=n]').onclick=()=>noteModal(i);
     d.querySelector('[data-a=s]').onclick=()=>{toggleSvc(t,i); commitTable(cur); renderOrder()};
+    d.querySelectorAll('[data-a=k]').forEach(el=>el.onclick=()=>{ const n=x.qty-x.sent;
+      modal(`<h3>${esc(x.name)} ${n}개</h3><p class="hint">주방 출력 없이 <b>전송됨</b>으로 바꿀까요?<br>주방에 직접 말씀하셨거나 이미 나간 경우에 쓰세요.</p><div class="row"><button id="mNo">아니요</button><button class="primary" id="mYes">전송됨으로 바꾸기</button></div>`);
+      $("mNo").onclick=closeModal; $("mYes").onclick=()=>{ const tt=S.tables[cur]; const y=tt&&tt.items[i]; if(y&&y.name===x.name){ y.sent=y.qty; commitTable(cur); } closeModal(); renderOrder(); toast("전송됨으로 바꿨습니다 (출력 안 함)"); }; });
     L.appendChild(d);
   });
   document.querySelectorAll(".discBtns [data-d]").forEach(b=>{b.classList.toggle("on",+b.dataset.d===(t.disc||0));b.onclick=()=>{t.disc=+b.dataset.d||0;commitTable(cur);renderOrder()}});
