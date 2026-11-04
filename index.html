@@ -219,7 +219,7 @@ table.rep tr.cat td{font-weight:700;background:var(--bg);padding-top:10px}
 <g fill="#22262A"><circle cx="118" cy="230" r="4"></circle><circle cx="150" cy="212" r="4"></circle><circle cx="182" cy="230" r="4"></circle></g></g>
 <line x1="34" y1="320" x2="372" y2="320" stroke="#22262A" stroke-width="6" stroke-linecap="round"></line></svg>두꺼비집 <small>Toad House POS</small></h1>
   <span class="spacer"></span>
-  <span class="sync" id="prn" hidden></span>
+  <span class="sync" id="prn" hidden onclick="prnInfo()" style="cursor:pointer"></span>
   <span class="sync" id="sync" hidden></span>
   <span class="clock num" id="clock"></span>
   <button class="ghost" id="btnClock">출퇴근 · Clock</button>
@@ -381,7 +381,7 @@ function startCloud(){
     if(!u){ loginScreen(); return; }
     closeModal();
     db.ref(".info/connected").on("value",s=>setStatus(!!s.val()));
-    db.ref("pos/printer/lastSeen").on("value",s=>{printerSeen=s.val()||0; printerStatus();});
+    db.ref("pos/printer").on("value",s=>{PRN=s.val()||{}; printerSeen=PRN.lastSeen||0; printerStatus();});
     // first device to connect seeds the shared menu & settings from this device
     db.ref("pos/settings").once("value").then(s=>{ if(!s.exists()){ commitSettings(); db.ref("pos/nextNo").set(S.settings.nextNo||1001); } });
     db.ref("pos/settings").on("value",s=>{ if(s.exists()){ S.settings=defaults({settings:s.val()}).settings; refresh(); } });
@@ -663,7 +663,15 @@ function sendPrint(doc,html,kind,id){
       else toast("프린터가 꺼져 있는 것 같습니다. 켜지면 자동으로 출력됩니다.",true); })
     .catch(()=>{ toast("프린터로 보내지 못했습니다. 인쇄 창으로 출력합니다.",true); doPrint(html); });
 }
-let printerSeen=0;
+let printerSeen=0, PRN={};
+function prnInfo(){ const t=v=>v?new Date(v).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit",second:"2-digit"}):"없음";
+  modal(`<h3>프린터 상태</h3><table class="rep num">
+   <tr><td>마지막 연결</td><td>${t(PRN.lastSeen)}</td></tr>
+   <tr><td>프린터 상태 코드</td><td>${esc(PRN.status||"-")}</td></tr>
+   <tr><td>마지막 출력 시각</td><td>${t(PRN.lastPrinted)}</td></tr>
+   <tr><td>마지막 출력 결과</td><td>${esc(PRN.lastResult||"-")}</td></tr>
+   <tr><td>MAC</td><td>${esc(PRN.mac||"-")}</td></tr></table>
+   <p class="hint">출력 결과가 "200"으로 시작하면 정상입니다.</p><div class="row"><button id="mNo">닫기</button></div>`); $("mNo").onclick=closeModal; }
 const printerOnline=()=>Date.now()-printerSeen<60000;
 function printerStatus(){ const el=$("prn"); if(!el)return; el.hidden=!useCloudPrint();
   el.className="sync "+(printerOnline()?"on":"off"); el.textContent=printerOnline()?"🖨 프린터 연결됨":"🖨 프린터 꺼짐"; }
