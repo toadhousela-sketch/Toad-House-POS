@@ -649,15 +649,32 @@ function docToPNG(doc){
     for(let yy=0;yy<sz;yy++){ const Y=wy+yy; if(Y<0||Y>=cv.height)continue;
       for(let xx=0;xx<sz;xx++){ if((xx+yy)%3||yy%2)continue; const k=(yy*sz+xx)*4; if(wd[k]>=150)continue;
         const i=(Y*W+ox+xx)*4; if(px[i]===255){ px[i]=px[i+1]=px[i+2]=0; } } } }
-  ctx.putImageData(im,0,0);
-  return cv.toDataURL("image/png").split(",")[1];
+  return png1bit(px,W,cv.height);
+}
+/* 프린터 메모리에 맞게 1비트 흑백 PNG로 만듦 (RGBA PNG는 511 Media Decoding Error) */
+const CRC_T=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
+function crc32(b){let c=0xFFFFFFFF;for(let i=0;i<b.length;i++)c=CRC_T[(c^b[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0}
+async function png1bit(px,W,H){
+  const rb=Math.ceil(W/8), raw=new Uint8Array((rb+1)*H);
+  for(let y=0;y<H;y++){ const o=y*(rb+1); raw[o]=0;
+    for(let x=0;x<W;x++){ if(px[(y*W+x)*4]>=128) raw[o+1+(x>>3)]|=0x80>>(x&7); } }
+  let z;
+  if(typeof CompressionStream!=="undefined"){ z=new Uint8Array(await new Response(new Blob([raw]).stream().pipeThrough(new CompressionStream("deflate"))).arrayBuffer()); }
+  else { const n=Math.ceil(raw.length/65535); z=new Uint8Array(2+raw.length+n*5+4); z[0]=0x78; z[1]=1; let o=2;
+    for(let i=0;i<n;i++){ const ch=raw.subarray(i*65535,Math.min(raw.length,(i+1)*65535)); z[o++]=i===n-1?1:0; z[o++]=ch.length&255; z[o++]=ch.length>>8; z[o++]=~ch.length&255; z[o++]=(~ch.length>>8)&255; z.set(ch,o); o+=ch.length; }
+    let a=1,b=0; for(let i=0;i<raw.length;i++){a=(a+raw[i])%65521;b=(b+a)%65521} const ad=((b<<16)|a)>>>0; z[o]=ad>>>24;z[o+1]=ad>>>16&255;z[o+2]=ad>>>8&255;z[o+3]=ad&255; }
+  const chunk=(type,data)=>{const out=new Uint8Array(12+data.length),dv=new DataView(out.buffer);dv.setUint32(0,data.length);for(let i=0;i<4;i++)out[4+i]=type.charCodeAt(i);out.set(data,8);dv.setUint32(8+data.length,crc32(out.subarray(4,8+data.length)));return out};
+  const ih=new Uint8Array(13),dv=new DataView(ih.buffer); dv.setUint32(0,W); dv.setUint32(4,H); ih[8]=1; ih[9]=0; ih[10]=0; ih[11]=0; ih[12]=0;
+  const parts=[new Uint8Array([137,80,78,71,13,10,26,10]),chunk("IHDR",ih),chunk("IDAT",z),chunk("IEND",new Uint8Array(0))];
+  const all=new Uint8Array(parts.reduce((t,p)=>t+p.length,0)); let o=0; parts.forEach(p=>{all.set(p,o);o+=p.length});
+  let bin=""; for(let i=0;i<all.length;i+=8192)bin+=String.fromCharCode.apply(null,all.subarray(i,i+8192)); return btoa(bin);
 }
 const useCloudPrint=()=>CLOUD&&db&&(S.settings.printMode||"cloud")==="cloud";
 function toast(msg,bad){ let el=$("toast"); if(!el){el=document.createElement("div");el.id="toast";document.body.appendChild(el);}
   el.textContent=msg; el.className="toast"+(bad?" bad":""); el.hidden=false; clearTimeout(toast.t); toast.t=setTimeout(()=>el.hidden=true,2600); }
-function sendPrint(doc,html,kind,id){
+async function sendPrint(doc,html,kind,id){
   if(!useCloudPrint()){ doPrint(html); return; }
-  let png; try{ png=docToPNG(doc); }catch(e){ doPrint(html); return; }
+  let png; try{ png=await docToPNG(doc); }catch(e){ doPrint(html); return; }
   db.ref("pos/printQueue").push({png,kind,table:id,created:Date.now()})
     .then(()=>{ if(printerOnline())toast(kind==="kitchen"?"주방 프린터로 보냈습니다":kind==="list"?"주문 목록을 프린터로 보냈습니다":"영수증을 프린터로 보냈습니다");
       else toast("프린터가 꺼져 있는 것 같습니다. 켜지면 자동으로 출력됩니다.",true); })
