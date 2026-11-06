@@ -363,8 +363,10 @@ async function salesBetween(a,b){
   return S.sales.map((x,i)=>Object.assign({},x,{_k:i})).filter(x=>x.time>=a&&x.time<b);
 }
 function ymd(t){const d=new Date(t);return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
-async function setSaleTip(k,tip,method,time){
-  const up={tip}; if(method)up.method=method; if(time)up.time=time;
+const cardTipOf=x=>x.method==="카드"?(x.tip||0):0;
+const cashTipOf=x=>(x.cashTip||0)+(x.method==="현금"?(x.tip||0):0);
+async function setSaleTip(k,tip,method,time,cashTip){
+  const up={tip}; if(method)up.method=method; if(time)up.time=time; if(cashTip!=null)up.cashTip=cashTip;
   if(CLOUD&&db) return db.ref("pos/sales/"+k).update(up);
   if(S.sales[k]){ Object.assign(S.sales[k],up); saveLocal(); }
 }
@@ -756,13 +758,15 @@ $("btnPaid").onclick=()=>{
   const warn=t.items.some(needK)?"<p class='hint'>주방에 아직 안 보낸 메뉴가 있습니다.</p>":"";
   modal(`<h3>${label(cur)} 결제 완료 처리</h3>${warn}<p class="num" style="font-size:22px;font-weight:900;margin:0">${money(calc(t).total)}</p>
     <label class="hint">카드 팁 (손님이 카드 영수증에 적은 팁, 없으면 비워 두세요)<input id="mTip" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0.00"></label>
+    <label class="hint">현금 팁 (손님이 현금으로 준 팁, 없으면 비워 두세요)<input id="mCTip" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0.00"></label>
     <div class="row"><button id="mNo">취소</button><button id="mCard">카드</button><button id="mCash">현금</button></div>
     <label class="hint"><input type="checkbox" id="mPr" style="width:auto"> 결제 영수증도 출력</label>`);
   $("mNo").onclick=closeModal;
-  const fin=async m=>{ const id=cur; const pr=$("mPr").checked; const tip=Math.max(0,Math.round((parseFloat($("mTip").value)||0)*100)/100); closeModal();
+  const fin=async m=>{ const id=cur; const pr=$("mPr").checked; const n2=v=>Math.max(0,Math.round((parseFloat(v)||0)*100)/100); const t1=n2($("mTip").value), t2=n2($("mCTip").value);
+    const tip=m==="카드"?t1:0, cashTip=Math.round((t2+(m==="카드"?0:t1))*100)/100; closeModal();
     let no=S.tables[id]&&S.tables[id].no; if(!no)no=await nextReceiptNo();
     const tt=S.tables[id]; if(!tt||!tt.items.length)return; const c=calc(tt);
-    addSale({no,table:id,time:Date.now(),method:m,sub:c.sub,tax:c.tax,total:c.total,svc:c.svc,disc:c.disc,discPct:c.discPct,tip,cust:custStr(tt),taxable:Math.round((c.items+c.svc)*100)/100,items:tt.items.map(x=>{const f=menu().find(y=>y.name===x.name);return {n:x.name+(x.svc?SVC_LBL:""),q:x.qty,p:x.svc?0:x.price,c:f?f.cat:"기타"}})});
+    addSale({no,table:id,time:Date.now(),method:m,sub:c.sub,tax:c.tax,total:c.total,svc:c.svc,disc:c.disc,discPct:c.discPct,tip,cashTip,cust:custStr(tt),taxable:Math.round((c.items+c.svc)*100)/100,items:tt.items.map(x=>{const f=menu().find(y=>y.name===x.name);return {n:x.name+(x.svc?SVC_LBL:""),q:x.qty,p:x.svc?0:x.price,c:f?f.cat:"기타"}})});
     const w=Date.now(); const html=receiptHtml(tt,id,no,w,true); const rdoc=receiptDoc(tt,id,no,w,true); S.tables[id]={items:[]}; commitTable(id); if(cur===id)back(); if(pr)sendPrint(rdoc,html,"receipt",id); };
   $("mCard").onclick=()=>fin("카드"); $("mCash").onclick=()=>fin("현금");
 };
@@ -811,8 +815,9 @@ function closeData(list){
   const m=(meth,k)=>Math.round(list.filter(x=>x.method===meth).reduce((t,x)=>t+(x[k]||0),0)*100)/100;
   const cnt=meth=>list.filter(x=>x.method===meth).length;
   const taxable=Math.round(list.reduce((t,x)=>t+(x.taxable!=null?x.taxable:(x.sub||0)+(x.disc||0)+(x.svc||0)),0)*100)/100;
-  return {n:list.length,sub:r("sub"),tax:r("tax"),total:r("total"),tip:r("tip"),disc:r("disc"),svc:r("svc"),taxable,
-    card:m("카드","total"),cardTip:m("카드","tip"),cardN:cnt("카드"),cash:m("현금","total"),cashTip:m("현금","tip"),cashN:cnt("현금")};
+  const rr=v=>Math.round(v*100)/100; const cardTip=rr(list.reduce((t,x)=>t+cardTipOf(x),0)), cashTip=rr(list.reduce((t,x)=>t+cashTipOf(x),0));
+  return {n:list.length,sub:r("sub"),tax:r("tax"),total:r("total"),tip:rr(cardTip+cashTip),disc:r("disc"),svc:r("svc"),taxable,
+    card:m("카드","total"),cardTip,cardN:cnt("카드"),cash:m("현금","total"),cashTip,cashN:cnt("현금")};
 }
 function closeTable(list){const d=closeData(list); const row=(l,v,c)=>`<tr${c?` class="${c}"`:""}><td>${l}</td><td>${v}</td></tr>`;
   return `<table class="rep num ctab">
@@ -828,7 +833,7 @@ function closeTable(list){const d=closeData(list); const row=(l,v,c)=>`<tr${c?` 
    ${row("카드 팁",money(d.cardTip),"hl")}
    ${row("카드 결제 총액 (카드사 금액과 비교)",money(d.card+d.cardTip),"hl")}
    ${row(`현금 ${d.cashN}건 (세금 포함)`,money(d.cash))}
-   ${d.cashTip?row("현금 팁",money(d.cashTip)):""}
+   ${row("현금 팁",money(d.cashTip),"hl")}
    ${row("팁 합계",money(d.tip),"hl")}
   </table>`;
 }
@@ -837,26 +842,26 @@ function closeDoc(list,title){const d=closeData(list); const L=(l,v,o)=>Object.a
     {t:"매출 · 세금",s:28,b:1},L("매출 (세전, 할인 후)",money(d.sub)),L("과세 대상 금액",money(d.taxable)),L("세금 "+S.settings.tax+"%",money(d.tax),{b:1}),
     L("매출 합계 (세금 포함)",money(d.total),{b:1,s:30}),L("할인 합계",d.disc?"-"+money(d.disc):money(0)),L("서비스 (정가)",money(d.svc)),{hr:1},
     {t:"결제 방법별",s:28,b:1},L("카드 "+d.cardN+"건",money(d.card)),L("카드 팁",money(d.cardTip),{b:1}),L("카드 총액 (팁 포함)",money(d.card+d.cardTip),{b:1,s:30}),
-    L("현금 "+d.cashN+"건",money(d.cash)),...(d.cashTip?[L("현금 팁",money(d.cashTip))]:[]),{hr:1},
+    L("현금 "+d.cashN+"건",money(d.cash)),L("현금 팁",money(d.cashTip),{b:1}),{hr:1},
     L("팁 합계",money(d.tip),{b:1,s:30}),L("결제 건수",String(d.n)),{hr:1}];
 }
 function closeHtml(list,title){const d=closeData(list); const r=(l,v,b)=>`<div class="r${b?" b":""}"><span>${l}</span><span>${v}</span></div>`;
   return `<div class="tk"><div class="big" style="font-size:24px">하루 마감 보고서</div><div class="c">${esc(title)}</div><hr>
    ${r("매출 (세전, 할인 후)",money(d.sub))}${r("과세 대상 금액",money(d.taxable))}${r("세금 "+S.settings.tax+"%",money(d.tax),1)}${r("매출 합계 (세금 포함)",money(d.total),1)}
    ${r("할인 합계",d.disc?"-"+money(d.disc):money(0))}${r("서비스 (정가)",money(d.svc))}<hr>
-   ${r("카드 "+d.cardN+"건",money(d.card))}${r("카드 팁",money(d.cardTip),1)}${r("카드 총액 (팁 포함)",money(d.card+d.cardTip),1)}${r("현금 "+d.cashN+"건",money(d.cash))}<hr>
+   ${r("카드 "+d.cardN+"건",money(d.card))}${r("카드 팁",money(d.cardTip),1)}${r("카드 총액 (팁 포함)",money(d.card+d.cardTip),1)}${r("현금 "+d.cashN+"건",money(d.cash))}${r("현금 팁",money(d.cashTip),1)}<hr>
    ${r("팁 합계",money(d.tip),1)}${r("결제 건수",d.n)}</div>`;
 }
 /* 엑셀(CSV) 내보내기 */
 function exportCsv(list,a,b){
   const q=v=>{v=v==null?"":String(v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
   const f2=n=>(Math.round((n||0)*100)/100).toFixed(2);
-  const head=["날짜","시간","영수증번호","테이블","손님","결제방법","매출(세전·할인후)","할인","서비스(정가)","과세대상","세금","합계(세금포함)","팁","결제총액(팁포함)","메뉴"];
+  const head=["날짜","시간","영수증번호","테이블","손님","결제방법","매출(세전·할인후)","할인","서비스(정가)","과세대상","세금","합계(세금포함)","카드 팁","현금 팁","카드결제총액(카드팁포함)","메뉴"];
   const rows=list.map(x=>{const d=new Date(x.time); const taxable=x.taxable!=null?x.taxable:(x.sub||0)+(x.disc||0)+(x.svc||0);
     return [d.toLocaleDateString("en-CA"),d.toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit"}),x.no,label(x.table),x.cust||"",x.method,
-      f2(x.sub),f2(x.disc),f2(x.svc),f2(taxable),f2(x.tax),f2(x.total),f2(x.tip),f2((x.total||0)+(x.tip||0)),(x.items||[]).map(i=>i.n+" x"+i.q).join("; ")]});
+      f2(x.sub),f2(x.disc),f2(x.svc),f2(taxable),f2(x.tax),f2(x.total),f2(cardTipOf(x)),f2(cashTipOf(x)),f2(x.method==="카드"?(x.total||0)+cardTipOf(x):0),(x.items||[]).map(i=>i.n+" x"+i.q).join("; ")]});
   const d=closeData(list);
-  rows.push([],["합계","","","","","",f2(d.sub),f2(d.disc),f2(d.svc),f2(d.taxable),f2(d.tax),f2(d.total),f2(d.tip),f2(d.total+d.tip),""]);
+  rows.push([],["합계","","","","","",f2(d.sub),f2(d.disc),f2(d.svc),f2(d.taxable),f2(d.tax),f2(d.total),f2(d.cardTip),f2(d.cashTip),f2(d.card+d.cardTip),""]);
   const csv="﻿"+[head,...rows].map(r=>r.map(q).join(",")).join("\r\n");
   const day=t=>new Date(t).toLocaleDateString("en-CA");
   const name=`toadhouse-sales_${day(a)}${b-a>86400000?"_to_"+day(b-1):""}.csv`;
@@ -1081,7 +1086,7 @@ async function showReport(){
      g.rs.map(r=>`<tr><td>${esc(r.n)}</td><td class="q">${r.q}</td><td>${money(r.amt)}</td></tr>`).join("")).join("")}</table>`:"<p class='hint'>이 기간에 판매된 메뉴가 없습니다.</p>";
   const multiDay=RP.mode!=="day";
   const txTable=list.length?`<table class="rep num">${list.slice().reverse().map(x=>`<tr><td>#${x.no} ${label(x.table)} · ${multiDay?new Date(x.time).toLocaleDateString("ko-KR",{month:"numeric",day:"numeric"})+" ":""}${timeStr(x.time)} · ${x.method}
-      <div class="sub">${(x.items||[]).map(i=>esc(i.n)+" ×"+i.q).join(", ")}</div></td><td>${money(x.total)}<div class="sub">팁 ${money(x.tip||0)} <button class="ghost tipEd" data-tip="${esc(String(x._k))}">결제·팁 수정</button></div></td></tr>`).join("")}</table>`:"<p class='hint'>결제된 건이 없습니다.</p>";
+      <div class="sub">${(x.items||[]).map(i=>esc(i.n)+" ×"+i.q).join(", ")}</div></td><td>${money(x.total)}<div class="sub">카드팁 ${money(cardTipOf(x))} · 현금팁 ${money(cashTipOf(x))} <button class="ghost tipEd" data-tip="${esc(String(x._k))}">결제·팁 수정</button></div></td></tr>`).join("")}</table>`:"<p class='hint'>결제된 건이 없습니다.</p>";
   modal(`<h3>매출 보기</h3>
    <div class="seg">${[["day","하루"],["week","주"],["month","월"]].map(([m,l])=>`<button data-m="${m}" class="${RP.mode===m?"on":""}">${l}</button>`).join("")}
      <span class="spacer"></span><button id="rpPrev" class="rpNav">◀ ${({day:"전날",week:"지난주",month:"지난달"})[RP.mode]}</button><button id="rpToday" class="rpNav">오늘</button><button id="rpNext" class="rpNav">${({day:"다음날",week:"다음주",month:"다음달"})[RP.mode]} ▶</button></div>
@@ -1107,14 +1112,16 @@ async function showReport(){
     let pm=x.method||"카드";
     modal(`<h3>#${x.no} ${label(x.table)} 결제·팁 수정</h3><p class="hint">${new Date(x.time).toLocaleString("ko-KR")} · 결제 ${money(x.total)}</p>
       <div class="hint">결제 방법</div><div class="seg" id="pmSeg">${["카드","현금"].map(m=>`<button data-pm="${m}" class="${pm===m?"on":""}">${m}</button>`).join("")}</div>
-      <label class="hint">팁 금액<input id="tpV" type="number" inputmode="decimal" step="0.01" min="0" value="${(x.tip||0).toFixed(2)}"></label>
+      <label class="hint">카드 팁<input id="tpV" type="number" inputmode="decimal" step="0.01" min="0" value="${cardTipOf(x).toFixed(2)}"></label>
+      <label class="hint">현금 팁<input id="tpC" type="number" inputmode="decimal" step="0.01" min="0" value="${cashTipOf(x).toFixed(2)}"></label>
       <label class="hint">매출 날짜 (다른 날 매출로 옮길 때만 바꾸세요)<input id="tpD" type="date" value="${ymd(x.time)}"></label>
       <div class="row"><button id="mNo">취소</button><button class="primary" id="mYes">저장</button></div>`);
     document.querySelectorAll("#pmSeg [data-pm]").forEach(b=>b.onclick=()=>{pm=b.dataset.pm; document.querySelectorAll("#pmSeg [data-pm]").forEach(z=>z.classList.toggle("on",z===b));});
     $("mNo").onclick=showReport;
-    $("mYes").onclick=async()=>{const v=Math.max(0,Math.round((parseFloat($("tpV").value)||0)*100)/100);
+    $("mYes").onclick=async()=>{const n2=z=>Math.max(0,Math.round((parseFloat(z)||0)*100)/100); const c1=n2($("tpV").value), c2=n2($("tpC").value);
+      const v=pm==="카드"?c1:0, cv=Math.round((c2+(pm==="카드"?0:c1))*100)/100;
       let nt=null; const dv=$("tpD").value; if(dv&&dv!==ymd(x.time)){ const [Y,M,D]=dv.split("-").map(Number); const o=new Date(x.time); nt=new Date(Y,M-1,D,o.getHours(),o.getMinutes(),o.getSeconds()).getTime(); }
-      try{ await setSaleTip(x._k,v,pm,nt); toast(`#${x.no} ${pm} · 팁 ${money(v)}${nt?" · "+new Date(nt).toLocaleDateString("ko-KR",{month:"numeric",day:"numeric"})+" 매출로 옮김":""} 저장했습니다`); if(nt)RP.anchor=nt; }catch(e){ toast("저장하지 못했습니다. 인터넷 연결을 확인해 주세요.",true); }
+      try{ await setSaleTip(x._k,v,pm,nt,cv); toast(`#${x.no} ${pm} · 카드팁 ${money(v)} · 현금팁 ${money(cv)}${nt?" · "+new Date(nt).toLocaleDateString("ko-KR",{month:"numeric",day:"numeric"})+" 매출로 옮김":""} 저장했습니다`); if(nt)RP.anchor=nt; }catch(e){ toast("저장하지 못했습니다. 인터넷 연결을 확인해 주세요.",true); }
       showReport();};
   });
   $("rpPrev").onclick=()=>shift(-1); $("rpNext").onclick=()=>shift(1); $("rpToday").onclick=()=>{RP.anchor=Date.now();showReport()};
