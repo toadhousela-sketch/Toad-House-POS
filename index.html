@@ -276,6 +276,7 @@ const DEFAULT_MENU=`# 형식: 카테고리 | 메뉴 이름 | 가격 | 영문 이
 소주/전통주 | 소주 | 13 | Soju
 소주/전통주 | 맥주 | 10 | Beer
 소주/전통주 | 소다 | 3 | Soda
+소주/전통주 | 레몬 | 1 | Lemon
 소주/전통주 | 국순당 생막걸리 | 13 | Draft Rice Wine
 소주/전통주 | 백세주 | 17 | Bekseju
 소주/전통주 | 명작 복분자 | 19 | Bokbunja
@@ -390,7 +391,7 @@ function startCloud(){
     db.ref("pos/settings").once("value").then(s=>{ if(!s.exists()){ commitSettings(); db.ref("pos/nextNo").set(S.settings.nextNo||1001); } });
     db.ref("pos/settings").on("value",s=>{ if(s.exists()){ S.settings=defaults({settings:s.val()}).settings; refresh(); } });
     // 메뉴 자동 변경(한 번만): 메뉴 값을 받은 뒤 아직 안 된 변경만 적용
-    const MENU_MIGS=[["m2_sojuAfterGrill",t=>moveCatAfter(t,"소주/전통주","구이류")],["m2_sojuMerged",mergeSoju],["m2_beerMerged",mergeBeer],["m2_stewSizes",stewSizes],["m2_soda",mergeSoda],["m2_mealAfterSoju",t=>moveCatAfter(t,"식사류","소주/전통주")],["m2_beerAfterSoju",beerAfterSoju],["m2_lettuce",addLettuce]];
+    const MENU_MIGS=[["m2_sojuAfterGrill",t=>moveCatAfter(t,"소주/전통주","구이류")],["m2_sojuMerged",mergeSoju],["m2_beerMerged",mergeBeer],["m2_stewSizes",stewSizes],["m2_soda",mergeSoda],["m2_mealAfterSoju",t=>moveCatAfter(t,"식사류","소주/전통주")],["m2_beerAfterSoju",beerAfterSoju],["m2_lettuce",addLettuce],["m2_lemon",addLemon]];
     let migStarted=false;
     const runMenuMigs=()=>{ if(migStarted)return; migStarted=true;
       db.ref("pos/migrations").once("value").then(m=>{ const done=m.val()||{}; const todo=MENU_MIGS.filter(([k])=>!done[k]); if(!todo.length)return;
@@ -433,8 +434,8 @@ function loginScreen(mode){
   if(create)$("lgBack").onclick=()=>loginScreen(); else $("lgNew").onclick=()=>loginScreen("create");
 }
 
-const menu=()=>S.menuText.split("\n").map(l=>l.trim()).filter(l=>l&&!l.startsWith("#")).map((l,i)=>{const[c,n,p,e,z]=l.split("|").map(x=>(x||"").trim());return{id:i,cat:c||"기타",name:n||c,price:parseFloat(p)||0,en:e||"",zh:z||zhOf(n||c)}}).reduce((a,x,_,all)=>{if(!a.length){const D="소주/전통주",isD=y=>y.cat===D&&(y.name==="맥주"||y.name==="소다");const k=all.findIndex(y=>y.cat===D&&y.name==="소주");if(k<0)return all.slice();const mv=all.filter(isD).sort((u,v)=>(u.name==="맥주"?0:1)-(v.name==="맥주"?0:1));const r=all.filter(y=>!isD(y));r.splice(r.indexOf(all[k])+1,0,...mv);return r;}return a},[]);
-const ZH={"상추쌈": "生菜包饭", "두꺼비 삼겹살": "黑猪五花肉", "두꺼비 항정살": "猪颊肉", "두꺼비 목살": "猪梅花肉", "두꺼비 껍데기": "猪皮", "두꺼비 차돌": "牛胸肉", "두꺼비 주물럭": "调味牛排骨", "육회": "生拌牛肉", "해물파전": "海鲜葱饼", "오징어볶음": "辣炒鱿鱼", "골뱅이무침": "凉拌海螺", "돼지불고기": "韩式烤猪肉", "양념두부": "调味豆腐", "비빔국수": "拌面", "김치전": "泡菜饼", "계란 후라이": "煎蛋", "고추장찌개": "辣椒酱汤", "김치찌개": "泡菜汤", "된장찌개": "大酱汤", "동태매운탕": "辣鳕鱼汤", "계란찜": "蒸蛋", "볶음밥": "炒饭", "소주": "烧酒", "맥주": "啤酒", "소다": "汽水", "새로": "烧酒", "처음처럼": "烧酒", "참이슬": "烧酒", "이즈백": "烧酒", "국순당 생막걸리": "米酒", "백세주": "百岁酒", "명작 복분자": "覆盆子酒", "크러쉬": "啤酒 克拉什", "클라우드": "啤酒 克劳德", "카스": "啤酒 凯狮", "테라": "啤酒 泰拉", "코카콜라": "可乐", "코크 제로": "零度可乐", "다이어트 코크": "健怡可乐", "세븐업": "七喜"};
+const menu=()=>S.menuText.split("\n").map(l=>l.trim()).filter(l=>l&&!l.startsWith("#")).map((l,i)=>{const[c,n,p,e,z]=l.split("|").map(x=>(x||"").trim());return{id:i,cat:c||"기타",name:n||c,price:parseFloat(p)||0,en:e||"",zh:z||zhOf(n||c)}}).reduce((a,x,_,all)=>{if(!a.length){const D="소주/전통주",isD=y=>y.cat===D&&(y.name==="맥주"||y.name==="소다"||y.name==="레몬"),rk={"맥주":0,"소다":1,"레몬":2};const k=all.findIndex(y=>y.cat===D&&y.name==="소주");if(k<0)return all.slice();const mv=all.filter(isD).sort((u,v)=>rk[u.name]-rk[v.name]);const r=all.filter(y=>!isD(y));r.splice(r.indexOf(all[k])+1,0,...mv);return r;}return a},[]);
+const ZH={"레몬": "柠檬", "상추쌈": "生菜包饭", "두꺼비 삼겹살": "黑猪五花肉", "두꺼비 항정살": "猪颊肉", "두꺼비 목살": "猪梅花肉", "두꺼비 껍데기": "猪皮", "두꺼비 차돌": "牛胸肉", "두꺼비 주물럭": "调味牛排骨", "육회": "生拌牛肉", "해물파전": "海鲜葱饼", "오징어볶음": "辣炒鱿鱼", "골뱅이무침": "凉拌海螺", "돼지불고기": "韩式烤猪肉", "양념두부": "调味豆腐", "비빔국수": "拌面", "김치전": "泡菜饼", "계란 후라이": "煎蛋", "고추장찌개": "辣椒酱汤", "김치찌개": "泡菜汤", "된장찌개": "大酱汤", "동태매운탕": "辣鳕鱼汤", "계란찜": "蒸蛋", "볶음밥": "炒饭", "소주": "烧酒", "맥주": "啤酒", "소다": "汽水", "새로": "烧酒", "처음처럼": "烧酒", "참이슬": "烧酒", "이즈백": "烧酒", "국순당 생막걸리": "米酒", "백세주": "百岁酒", "명작 복분자": "覆盆子酒", "크러쉬": "啤酒 克拉什", "클라우드": "啤酒 克劳德", "카스": "啤酒 凯狮", "테라": "啤酒 泰拉", "코카콜라": "可乐", "코크 제로": "零度可乐", "다이어트 코크": "健怡可乐", "세븐업": "七喜"};
 const zhOf=n=>{const b=String(n).replace(/\s*\(((1|2)인|Medium|Large)\)$/,"");const z=ZH[b];if(!z)return "";const m=String(n).match(/\(((1|2)인|Medium|Large)\)$/);if(!m)return z;const sz={Medium:"中",Large:"大"};return z+"("+(sz[m[1]]||m[2]+"人")+")"};
 const CAT_EN={"구이류":"Grilled","안주류":"Entrees","식사류":"Soups & Rice","소주/전통주":"Soju, Beer & Soda","맥주":"Beer","음료":"Soft Drinks"};
 const $=id=>document.getElementById(id);
@@ -481,6 +482,7 @@ function mergeSoda(t){const L=t.split("\n");const cat=l=>l.split("|")[0].trim();
 function beerAfterSoju(t){const L=t.split("\n");const nm=l=>{if(l.trim().startsWith("#"))return null;const p=l.split("|").map(x=>x.trim());return p[0]==="소주/전통주"?p[1]:null};
   const mv=L.filter(l=>nm(l)==="맥주"||nm(l)==="소다").sort((a,b)=>(nm(a)==="맥주"?0:1)-(nm(b)==="맥주"?0:1)); if(!mv.length)return t;
   const out=L.filter(l=>!mv.includes(l)); const k=out.findIndex(l=>nm(l)==="소주"); if(k<0)return t; out.splice(k+1,0,...mv); return out.join("\n");}
+function addLemon(t){const L=t.split("\n");if(L.some(l=>/\|\s*레몬\s*\|/.test(l)))return t;let k=-1;L.forEach((l,i)=>{if(/^\s*소주\/전통주\s*\|/.test(l))k=i});const line="소주/전통주 | 레몬 | 1 | Lemon";if(k<0)L.push(line);else L.splice(k+1,0,line);return L.join("\n")}
 function addLettuce(t){const L=t.split("\n");if(L.some(l=>/\|\s*상추쌈\s*\|/.test(l)))return t;let k=L.findIndex(l=>/^\s*식사류\s*\|\s*공기밥\s*\|/.test(l));if(k<0)L.forEach((l,i)=>{if(/^\s*식사류\s*\|/.test(l))k=i});const line="식사류 | 상추쌈 | 5 | Lettuce Wraps (Ssam)";if(k<0)L.push(line);else L.splice(k+1,0,line);return L.join("\n")}
 function addRiceLine(t){const L=t.split("\n");let k=-1;L.forEach((l,i)=>{if(/^\s*식사류\s*\|/.test(l))k=i});const line="식사류 | 공기밥 | 2 | Steamed Rice";if(k<0)L.push(line);else L.splice(k+1,0,line);return L.join("\n")}
 const SVC_LBL=" (서비스)";
