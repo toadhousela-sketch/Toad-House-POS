@@ -150,6 +150,7 @@ table.rep tr.cat td{font-weight:700;background:var(--bg);padding-top:10px}
 .seg{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .seg button{padding:6px 12px;border-radius:8px}
 .seg button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.seg .rpNav{padding:10px 16px;font-size:16px;font-weight:700;touch-action:manipulation}
 #ttl,#btnBack,#opened{white-space:nowrap} #btnCust{font-size:13px;padding:4px 10px;min-height:0;max-width:200px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-left:6px}
 .tipEd{font-size:12px;padding:2px 8px;min-height:0;margin-left:4px}
 .ctab td:first-child{color:var(--muted)} .ctab tr.hl td{font-weight:800;color:var(--ink)} .ctab tr.sec td{padding-top:12px;font-weight:800;color:var(--ink);border-bottom:1px solid var(--line)}
@@ -1083,7 +1084,7 @@ async function showReport(){
       <div class="sub">${(x.items||[]).map(i=>esc(i.n)+" ×"+i.q).join(", ")}</div></td><td>${money(x.total)}<div class="sub">팁 ${money(x.tip||0)} <button class="ghost tipEd" data-tip="${esc(String(x._k))}">결제·팁 수정</button></div></td></tr>`).join("")}</table>`:"<p class='hint'>결제된 건이 없습니다.</p>";
   modal(`<h3>매출 보기</h3>
    <div class="seg">${[["day","하루"],["week","주"],["month","월"]].map(([m,l])=>`<button data-m="${m}" class="${RP.mode===m?"on":""}">${l}</button>`).join("")}
-     <span class="spacer"></span><button id="rpPrev">◀</button><button id="rpToday">오늘</button><button id="rpNext">▶</button></div>
+     <span class="spacer"></span><button id="rpPrev" class="rpNav">◀ ${({day:"전날",week:"지난주",month:"지난달"})[RP.mode]}</button><button id="rpToday" class="rpNav">오늘</button><button id="rpNext" class="rpNav">${({day:"다음날",week:"다음주",month:"다음달"})[RP.mode]} ▶</button></div>
    <h4>${periodLabel(RP.mode,a,b)}</h4>
    <div class="kpis">
      <div class="kpi"><span>합계 (세금 포함)</span><b class="num">${money(sum("total"))}</b></div>
