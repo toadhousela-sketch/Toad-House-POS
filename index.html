@@ -821,6 +821,11 @@ function closeData(list){
 }
 function closeTable(list){const d=closeData(list); const row=(l,v,c)=>`<tr${c?` class="${c}"`:""}><td>${l}</td><td>${v}</td></tr>`;
   return `<table class="rep num ctab">
+   ${row("요약 Summary","", "sec")}
+   ${row("매출 합계 (세전, 할인 후)",money(d.sub),"hl")}
+   ${row("총 팁 (카드 + 현금)",money(d.tip),"hl")}
+   ${row("Sales Tax "+S.settings.tax+"%",money(d.tax),"hl")}
+   ${row(`<b style="font-size:19px">총 토탈 (매출 + 팁 + 세금)</b>`,`<b style="font-size:19px">${money(d.total+d.tip)}</b>`,"hl")}
    ${row("매출 · 세금","", "sec")}
    ${row("음식·음료 매출 (세전, 할인 후)",money(d.sub))}
    ${row("과세 대상 금액 (할인 전 + 서비스)",money(d.taxable))}
@@ -839,6 +844,7 @@ function closeTable(list){const d=closeData(list); const row=(l,v,c)=>`<tr${c?` 
 }
 function closeDoc(list,title){const d=closeData(list); const L=(l,v,o)=>Object.assign({l,r:v,s:26},o||{});
   return [{t:"하루 마감 보고서",s:40,b:1,a:"c"},{t:"Daily Close · Toad House",s:24,a:"c"},{t:title,s:24,a:"c"},{t:"출력 "+new Date().toLocaleString("ko-KR"),s:20,a:"c"},{hr:1},
+    {t:"요약 Summary",s:28,b:1},L("매출 합계 (세전)",money(d.sub),{b:1}),L("총 팁",money(d.tip),{b:1}),L("Sales Tax",money(d.tax),{b:1}),L("총 토탈",money(d.total+d.tip),{b:1,s:34}),{hr:1},
     {t:"매출 · 세금",s:28,b:1},L("매출 (세전, 할인 후)",money(d.sub)),L("과세 대상 금액",money(d.taxable)),L("세금 "+S.settings.tax+"%",money(d.tax),{b:1}),
     L("매출 합계 (세금 포함)",money(d.total),{b:1,s:30}),L("할인 합계",d.disc?"-"+money(d.disc):money(0)),L("서비스 (정가)",money(d.svc)),{hr:1},
     {t:"결제 방법별",s:28,b:1},L("카드 "+d.cardN+"건",money(d.card)),L("카드 팁",money(d.cardTip),{b:1}),L("카드 총액 (팁 포함)",money(d.card+d.cardTip),{b:1,s:30}),
@@ -847,6 +853,7 @@ function closeDoc(list,title){const d=closeData(list); const L=(l,v,o)=>Object.a
 }
 function closeHtml(list,title){const d=closeData(list); const r=(l,v,b)=>`<div class="r${b?" b":""}"><span>${l}</span><span>${v}</span></div>`;
   return `<div class="tk"><div class="big" style="font-size:24px">하루 마감 보고서</div><div class="c">${esc(title)}</div><hr>
+   ${r("매출 합계 (세전)",money(d.sub),1)}${r("총 팁",money(d.tip),1)}${r("Sales Tax",money(d.tax),1)}${r("총 토탈",money(d.total+d.tip),1)}<hr>
    ${r("매출 (세전, 할인 후)",money(d.sub))}${r("과세 대상 금액",money(d.taxable))}${r("세금 "+S.settings.tax+"%",money(d.tax),1)}${r("매출 합계 (세금 포함)",money(d.total),1)}
    ${r("할인 합계",d.disc?"-"+money(d.disc):money(0))}${r("서비스 (정가)",money(d.svc))}<hr>
    ${r("카드 "+d.cardN+"건",money(d.card))}${r("카드 팁",money(d.cardTip),1)}${r("카드 총액 (팁 포함)",money(d.card+d.cardTip),1)}${r("현금 "+d.cashN+"건",money(d.cash))}${r("현금 팁",money(d.cashTip),1)}<hr>
