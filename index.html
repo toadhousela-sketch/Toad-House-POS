@@ -964,6 +964,25 @@ function payCalc(shifts){
     Object.values(weeks).forEach(W=>{E.reg+=W.reg;E.ot+=W.ot;E.dt+=W.dt;}); E.nDays=Object.keys(E.days).length; });
   return Object.values(byEmp).sort((a,b)=>a.n.localeCompare(b.n));
 }
+/* 출퇴근 달력: 날짜별 총 근무시간, 누르면 그날 직원별 시간 */
+async function showClockCalendar(anchor){
+  const base=new Date(anchor); const y=base.getFullYear(), mo=base.getMonth();
+  const a=new Date(y,mo,1).getTime(), b=new Date(y,mo+1,1).getTime();
+  modal(`<h3>${y}년 ${mo+1}월</h3><p class="hint">불러오는 중… · Loading…</p>`);
+  let list=[]; try{ list=await shiftsBetween(a,b); }catch(e){}
+  const day={}; list.forEach(sh=>{const d=new Date(sh.time).getDate(); const o=day[d]||(day[d]={ms:0,emps:{}}); const w=workMs(sh); o.ms+=w; o.emps[sh.e]=(o.emps[sh.e]||0)+w;});
+  const first=new Date(y,mo,1).getDay(), days=new Date(y,mo+1,0).getDate(), today=new Date(); let cells="", monthMs=0;
+  for(let i=0;i<first;i++) cells+=`<div class="cd empty"></div>`;
+  for(let d=1;d<=days;d++){ const o=day[d]; if(o)monthMs+=o.ms; const isT=today.getFullYear()===y&&today.getMonth()===mo&&today.getDate()===d;
+    cells+=`<button class="cd${o?" has":""}${isT?" today":""}" data-d="${d}"><span class="dn">${d}</span>${o?`<span class="ds">${hrs(o.ms)}h</span><span class="dc">${Object.keys(o.emps).length}명 · ${Object.keys(o.emps).length}p</span>`:""}</button>`; }
+  modal(`<div class="row" style="justify-content:space-between;align-items:center"><button id="cPrev" class="rpNav">◀ 지난달</button><h3 style="margin:0">${y}년 ${mo+1}월 근무</h3><button id="cNext" class="rpNav">다음달 ▶</button></div>
+    <p class="hint">날짜를 누르면 그날 직원별 근무시간을 봅니다. · Tap a day to see hours by employee.<br>이번 달 총 근무 ${hrs(monthMs)}시간</p>
+    <div class="cal">${["일","월","화","수","목","금","토"].map(w=>`<div class="cw">${w}</div>`).join("")}${cells}</div>
+    <div class="row"><button id="cBack">근무 기록으로 · Back</button></div>`);
+  $("cPrev").onclick=()=>showClockCalendar(new Date(y,mo-1,1).getTime()); $("cNext").onclick=()=>showClockCalendar(new Date(y,mo+1,1).getTime());
+  $("cBack").onclick=()=>showTimesheet();
+  document.querySelectorAll(".cal [data-d]").forEach(btn=>btn.onclick=()=>{TC.mode="day"; TC.anchor=new Date(y,mo,+btn.dataset.d,12).getTime(); showTimesheet();});
+}
 async function showTimesheet(){
   if(!TC.anchor)TC.anchor=Date.now();
   const [a,b]=periodRange(TC.mode,TC.anchor);
@@ -978,16 +997,17 @@ async function showTimesheet(){
     return `<tr><td>${esc(sh.n)} · ${d.toLocaleDateString("en-US",{weekday:"short",month:"numeric",day:"numeric"})}<div class="sub">${tstr(sh.time)} – ${sh.out?tstr(sh.out):(live?"근무 중 · Working":'<b style="color:var(--danger)">퇴근 누락 · Missing out</b>')} · 휴식 Break ${Math.round(brMs(sh)/60000)} min${sh.edited?" · 수정됨 Edited":""}</div></td>
       <td>${sh.out||live?hrs(workMs(sh)):"—"}</td><td><button class="ghost" data-ed="${sh.k}">수정 · Edit</button></td></tr>`}).join("");
   modal(`<h3>근무 기록 · Timesheet</h3>
-   <div class="seg">${[["week","주 · Week"],["month","월 · Month"]].map(([m,l])=>`<button data-tm="${m}" class="${TC.mode===m?"on":""}">${l}</button>`).join("")}
-     <span class="spacer"></span><button id="tcPrev">◀</button><button id="tcToday">오늘 · Today</button><button id="tcNext">▶</button></div>
+   <div class="seg">${[["day","일 · Day"],["week","주 · Week"],["month","월 · Month"]].map(([m,l])=>`<button data-tm="${m}" class="${TC.mode===m?"on":""}">${l}</button>`).join("")}
+     <span class="spacer"></span><button id="tcPrev" class="rpNav">◀</button><button id="tcToday" class="rpNav">오늘 · Today</button><button id="tcCal" class="rpNav">📅 달력 · Calendar</button><button id="tcNext" class="rpNav">▶</button></div>
    <h4>${periodLabel(TC.mode,a,b)}</h4>${sumT}
    <div class="row" style="justify-content:flex-start"><button id="tcAdd">기록 추가 · Add shift</button><button id="tcEmp">직원 관리 · Employees</button><button id="tcCsv">엑셀(CSV) · Export</button></div>
    <h4>출퇴근 내역 · Shifts</h4>${list.length?`<table class="rep num tc">${rows}</table>`:"<p class='hint'>내역이 없습니다. · No shifts.</p>"}
    <div class="row"><button id="mNo">닫기 · Close</button></div>`);
   $("mNo").onclick=closeModal;
   document.querySelectorAll("[data-tm]").forEach(x=>x.onclick=()=>{TC.mode=x.dataset.tm;showTimesheet()});
-  const shift=n=>{const d=new Date(TC.anchor); if(TC.mode==="month")d.setMonth(d.getMonth()+n); else d.setDate(d.getDate()+7*n); TC.anchor=d.getTime(); showTimesheet();};
+  const shift=n=>{const d=new Date(TC.anchor); if(TC.mode==="month")d.setMonth(d.getMonth()+n); else d.setDate(d.getDate()+(TC.mode==="week"?7:1)*n); TC.anchor=d.getTime(); showTimesheet();};
   $("tcPrev").onclick=()=>shift(-1); $("tcNext").onclick=()=>shift(1); $("tcToday").onclick=()=>{TC.anchor=Date.now();showTimesheet()};
+  $("tcCal").onclick=()=>showClockCalendar(TC.anchor);
   $("tcEmp").onclick=empManager; $("tcAdd").onclick=()=>editShift(null);
   $("tcCsv").onclick=()=>timesheetCsv(list,sum,a,b);
   document.querySelectorAll("[data-ed]").forEach(x=>x.onclick=()=>editShift(list.find(s=>s.k===x.dataset.ed)));
