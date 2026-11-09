@@ -61,7 +61,11 @@ header.top h1 small{font-weight:500;color:var(--muted);font-size:13px}
 @media (max-width:1100px){#order{grid-template-columns:1fr 330px}}
 #order{grid-template-rows:minmax(0,1fr)} #menuSide,#check{min-height:0} #items{flex:1;min-height:0} #lines{min-height:60px}
 #menuSide{display:flex;flex-direction:column;min-width:0;border-right:1px solid var(--line)}
-#cats{display:flex;gap:8px;padding:12px 16px;overflow-x:auto;border-bottom:1px solid var(--line)}
+#cats{display:flex;gap:6px;padding:8px 12px;overflow-x:auto;border-bottom:1px solid var(--line);-webkit-overflow-scrolling:touch;scrollbar-width:none}
+#cats::-webkit-scrollbar{display:none}
+#cats .ttab{flex:0 0 auto;min-width:48px;padding:8px 12px;font-weight:700;font-size:16px;border-radius:10px}
+#cats .ttab.busy{border-color:var(--busy);color:var(--busy)}
+#cats .ttab.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 #cats button{white-space:nowrap}
 #cats button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .icat{grid-column:1/-1;font-size:15px;font-weight:800;color:var(--ink);margin:8px 0 -2px;border-bottom:2px solid var(--line);padding-bottom:4px}
@@ -71,7 +75,7 @@ header.top h1 small{font-weight:500;color:var(--muted);font-size:13px}
 .mi b{font-size:16px}
 .mi span{color:var(--muted);font-size:13px}
 .en{display:block;font-style:normal;font-weight:400;font-size:12px;color:var(--muted);line-height:1.3}
-#cats button{display:flex;flex-direction:column;align-items:flex-start;line-height:1.2}
+#cats button{line-height:1.2}
 #cats button.on .en{color:inherit;opacity:.75}
 .mi .en{margin-top:-4px}
 #check{display:flex;flex-direction:column;background:var(--panel);min-width:0}
@@ -538,6 +542,19 @@ function openTable(id){
   cur=id; if(!S.tables[id])S.tables[id]={items:[],opened:Date.now()};
   $("floor").hidden=true; $("order").hidden=false; renderOrder();
 }
+/* 메뉴 위 테이블 탭: 다른 테이블로 바로 이동 */
+function renderTableTabs(){
+  const c=$("cats"); c.hidden=false; c.innerHTML="";
+  tableIds().forEach(id=>{ const t=S.tables[id]; const busy=t&&t.items.length; const b=document.createElement("button");
+    b.className="ttab"+(id===cur?" on":"")+(busy?" busy":""); b.textContent=id.startsWith("TO")?"투고 "+id.slice(2):id.slice(1);
+    b.onclick=()=>switchTable(id); c.appendChild(b); });
+  const on=c.querySelector(".on"); if(on&&on.scrollIntoView)on.scrollIntoView({inline:"nearest",block:"nearest"});
+}
+function switchTable(id){
+  if(id===cur)return;
+  const t=S.tables[cur]; if(t&&!t.items.length){ if(t.cust){S.tables[cur]={items:[]};commitTable(cur);} delete S.tables[cur]; if(!CLOUD)saveLocal(); }
+  openTable(id);
+}
 function back(){
   const t=S.tables[cur]; if(t&&!t.items.length){ if(t.cust){S.tables[cur]={items:[]};commitTable(cur);} delete S.tables[cur]; }
   if(!CLOUD)saveLocal(); cur=null; $("order").hidden=true; $("floor").hidden=false; renderFloor();
@@ -545,7 +562,7 @@ function back(){
 function renderOrder(){
   const m=menu(); const cats=[...new Set(m.map(x=>x.cat))];
   const ALL="__all__"; curCat=ALL; /* 탭 없이 전체 메뉴만 표시 */
-  $("cats").hidden=true;
+  renderTableTabs();
   $("items").innerHTML=""; let lastCat=null; m.filter(x=>curCat===ALL||x.cat===curCat).forEach(x=>{
     if(curCat===ALL&&x.cat!==lastCat){lastCat=x.cat;const h=document.createElement("div");h.className="icat";h.textContent=x.cat+(CAT_EN[x.cat]?" · "+CAT_EN[x.cat]:"");$("items").appendChild(h);}
     const b=document.createElement("button");b.className="mi";b.innerHTML=`<b>${esc(x.name)}</b>${x.en?`<em class="en">${esc(x.en)}</em>`:""}<span class="num">${money(x.price)}</span>`;b.onclick=()=>addItem(x);$("items").appendChild(b)});
