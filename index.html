@@ -100,7 +100,7 @@ header.top h1 small{font-weight:500;color:var(--muted);font-size:13px}
 .acts .wide{grid-column:1/-1;padding:14px;font-size:17px}
 .acts .listBtn{background:#2E5A88;color:#fff;border-color:#2E5A88;font-weight:800} .acts .rcBtn{background:#6D4C8F;color:#fff;border-color:#6D4C8F;font-weight:800}
 
-.ln .vr{display:block;font-style:normal;font-weight:700;font-size:15px;color:var(--toad);margin-top:2px}
+.ln .vr{display:block;width:max-content;font-style:normal;font-weight:700;font-size:15px;color:var(--toad);margin-top:3px;padding:3px 9px;border:1px solid var(--toad);border-radius:999px;cursor:pointer;touch-action:manipulation}
 .stL{display:none}
 @media (orientation:landscape) and (min-width:701px){
   #order{grid-template-columns:1fr 440px}
@@ -589,13 +589,20 @@ function renderOrder(){
   t.items.forEach((x,i)=>{
     const d=document.createElement("div"); d.className="ln";
     const st=isBar(x)?`<span class="pill bar">주방 안 감</span>`:x.qty>x.sent?`<span class="pill new" data-a="k" role="button">주방 미전송 ${x.qty-x.sent} ›</span>`:`<span class="pill sent">전송됨</span>`;
-    d.innerHTML=`<span class="nm">${esc(x.name)} × <span class="num">${x.qty}</span>${x.v?`<em class="vr">${esc(x.v)}</em>`:""}${x.en?`<em class="en">${esc(x.en)}</em>`:""}<span class="stL">${x.svc?`<span class="pill svc">서비스 $0</span>`:""}${st}</span></span><span class="pr num">${x.svc?`<s class="was">${money(x.price*x.qty)}</s> `:""}${money(lineAmt(x))}</span>
+    d.innerHTML=`<span class="nm">${esc(x.name)} × <span class="num">${x.qty}</span>${variantsOf(x.name)?`<em class="vr" data-a="v" role="button">${x.v?esc(x.v):"종류 선택"} ›</em>`:""}${x.en?`<em class="en">${esc(x.en)}</em>`:""}<span class="stL">${x.svc?`<span class="pill svc">서비스 $0</span>`:""}${st}</span></span><span class="pr num">${x.svc?`<s class="was">${money(x.price*x.qty)}</s> `:""}${money(lineAmt(x))}</span>
       ${x.note?`<span class="note">↳ ${esc(x.note)}</span>`:""}
       <span class="ctl"><button data-a="m">−</button><button data-a="p">+</button><button data-a="n">메모</button><button data-a="s" class="${x.svc?"svcOn":""}">${x.svc?"서비스 취소":"서비스"}</button><span class="spacer"></span><span class="stP">${x.svc?`<span class="pill svc">서비스 $0</span>`:""}${st}</span></span>`;
     d.querySelector('[data-a=m]').onclick=()=>{x.qty--; if(x.qty<x.sent)x.sent=x.qty; if(x.qty<=0)t.items.splice(i,1); commitTable(cur); renderOrder()};
     d.querySelector('[data-a=p]').onclick=()=>{x.qty++; commitTable(cur); renderOrder()};
     d.querySelector('[data-a=n]').onclick=()=>noteModal(i);
     d.querySelector('[data-a=s]').onclick=()=>{toggleSvc(t,i); commitTable(cur); renderOrder()};
+    d.querySelectorAll('[data-a=v]').forEach(el=>el.onclick=()=>{ const vs=variantsOf(x.name); if(!vs)return;
+      modal(`<h3>${esc(x.name)} 종류 바꾸기</h3><p class="hint">지금: <b>${x.v?esc(x.v):"안 정함"}</b></p><div class="vgrid">${vs.map(v=>`<button class="vbtn${v===x.v?" primary":""}" data-v="${esc(v)}">${esc(v)}</button>`).join("")}<button class="vbtn ghost" data-v="">안 정함</button></div><div class="row"><button id="mNo">취소</button></div>`);
+      $("mNo").onclick=closeModal;
+      document.querySelectorAll(".vbtn").forEach(b=>b.onclick=()=>{ closeModal(); const nv=b.dataset.v; const tt=S.tables[cur]; const y=tt&&tt.items[i]; if(!y||y.name!==x.name)return;
+        const same=tt.items.find((z,j)=>j!==i&&z.name===y.name&&(z.v||"")===nv&&z.note===y.note&&!!z.svc===!!y.svc&&z.price===y.price);
+        if(same){ same.qty+=y.qty; same.sent=Math.min(same.qty,same.sent+y.sent); tt.items.splice(i,1); } else { if(nv)y.v=nv; else delete y.v; }
+        commitTable(cur); renderOrder(); toast(`${x.name} → ${nv||"안 정함"}`); }); });
     d.querySelectorAll('[data-a=k]').forEach(el=>el.onclick=()=>{ const n=x.qty-x.sent;
       modal(`<h3>${esc(dn(x))} ${n}개</h3><p class="hint">주방 출력 없이 <b>전송됨</b>으로 바꿀까요?<br>주방에 직접 말씀하셨거나 이미 나간 경우에 쓰세요.</p><div class="row"><button id="mNo">아니요</button><button class="primary" id="mYes">전송됨으로 바꾸기</button></div>`);
       $("mNo").onclick=closeModal; $("mYes").onclick=()=>{ const tt=S.tables[cur]; const y=tt&&tt.items[i]; if(y&&y.name===x.name){ y.sent=y.qty; commitTable(cur); } closeModal(); renderOrder(); toast("전송됨으로 바꿨습니다 (출력 안 함)"); }; });
