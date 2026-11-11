@@ -63,9 +63,11 @@ header.top h1 small{font-weight:500;color:var(--muted);font-size:13px}
 #menuSide{display:flex;flex-direction:column;min-width:0;border-right:1px solid var(--line)}
 #cats{display:flex;gap:6px;padding:8px 12px;overflow-x:auto;border-bottom:1px solid var(--line);-webkit-overflow-scrolling:touch;scrollbar-width:none}
 #cats::-webkit-scrollbar{display:none}
-#cats .ttab{flex:0 0 auto;min-width:48px;padding:8px 12px;font-weight:700;font-size:16px;border-radius:10px}
-#cats .ttab.busy{border-color:var(--busy);color:var(--busy)}
-#cats .ttab.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.hdrTabs{display:flex;gap:6px;flex:1 1 320px;min-width:0;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:2px 0}
+.hdrTabs::-webkit-scrollbar{display:none}
+.ttab{flex:0 0 auto;min-width:48px;padding:8px 12px;font-weight:700;font-size:16px;border-radius:10px}
+.ttab.busy{border-color:var(--busy);color:var(--busy)}
+.ttab.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 #cats button{white-space:nowrap}
 #cats button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .icat{grid-column:1/-1;font-size:15px;font-weight:800;color:var(--ink);margin:8px 0 -2px;border-bottom:2px solid var(--line);padding-bottom:4px}
@@ -251,6 +253,7 @@ table.rep tr.cat td{font-weight:700;background:var(--bg);padding-top:10px}
   <button class="ghost" id="btnSales">매출 보기</button>
   <button class="ghost" id="btnMenu">메뉴/설정</button>
   <button class="ghost" id="btnHome">전체 테이블</button>
+  <span id="hdrTabs" class="hdrTabs"></span>
 </header>
 
 <main id="floor"></main>
@@ -538,6 +541,7 @@ function toggleSvc(t,i){
 let cur=null, curCat=null;
 
 function renderFloor(){
+  renderTableTabs();
   const f=$("floor"); f.innerHTML="";
   const add=(h)=>{const d=document.createElement("div");d.className="sect";d.textContent=h;f.appendChild(d)};
   add("홀 테이블");
@@ -558,7 +562,7 @@ function openTable(id){
 }
 /* 메뉴 위 테이블 탭: 다른 테이블로 바로 이동 */
 function renderTableTabs(){
-  const c=$("cats"); c.hidden=false; c.innerHTML="";
+  $("cats").hidden=true; const c=$("hdrTabs"); c.innerHTML="";
   tableIds().forEach(id=>{ const t=S.tables[id]; const busy=t&&t.items.length; const b=document.createElement("button");
     b.className="ttab"+(id===cur?" on":"")+(busy?" busy":""); b.textContent=id.startsWith("TO")?"투고 "+id.slice(2):id.slice(1);
     b.onclick=()=>switchTable(id); c.appendChild(b); });
@@ -566,6 +570,7 @@ function renderTableTabs(){
 }
 function switchTable(id){
   if(id===cur)return;
+  if(!cur){ openTable(id); return; }
   const t=S.tables[cur]; if(t&&!t.items.length){ if(t.cust){S.tables[cur]={items:[]};commitTable(cur);} delete S.tables[cur]; if(!CLOUD)saveLocal(); }
   openTable(id);
 }
