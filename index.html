@@ -296,7 +296,7 @@ const DEFAULT_MENU=`# 형식: 카테고리 | 메뉴 이름 | 가격 | 영문 이
 구이류 | 두꺼비 삼겹살 | 35 | Pork Belly
 구이류 | 두꺼비 항정살 | 40 | Pork Jowls
 구이류 | 두꺼비 목살 | 30 | Pork Shoulder
-구이류 | 두꺼비 껍데기 | 25 | Pork Skin
+구이류 | 두꺼비 껍데기 | 30 | Pork Skin
 구이류 | 두꺼비 차돌 | 40 | Beef Brisket
 구이류 | 두꺼비 주물럭 | 55 | Marinated Beef Ribs
 소주/전통주 | 소주 | 13 | Soju
@@ -422,7 +422,7 @@ function startCloud(){
     db.ref("pos/settings").once("value").then(s=>{ if(!s.exists()){ commitSettings(); db.ref("pos/nextNo").set(S.settings.nextNo||1001); } });
     db.ref("pos/settings").on("value",s=>{ if(s.exists()){ S.settings=defaults({settings:s.val()}).settings; refresh(); } });
     // 메뉴 자동 변경(한 번만): 메뉴 값을 받은 뒤 아직 안 된 변경만 적용
-    const MENU_MIGS=[["m2_sojuAfterGrill",t=>moveCatAfter(t,"소주/전통주","구이류")],["m2_sojuMerged",mergeSoju],["m2_beerMerged",mergeBeer],["m2_stewSizes",stewSizes],["m2_soda",mergeSoda],["m2_mealAfterSoju",t=>moveCatAfter(t,"식사류","소주/전통주")],["m2_beerAfterSoju",beerAfterSoju],["m2_lettuce",addLettuce],["m2_lemon",addLemon],["m2_sari",addSari]];
+    const MENU_MIGS=[["m2_sojuAfterGrill",t=>moveCatAfter(t,"소주/전통주","구이류")],["m2_sojuMerged",mergeSoju],["m2_beerMerged",mergeBeer],["m2_stewSizes",stewSizes],["m2_soda",mergeSoda],["m2_mealAfterSoju",t=>moveCatAfter(t,"식사류","소주/전통주")],["m2_beerAfterSoju",beerAfterSoju],["m2_lettuce",addLettuce],["m2_lemon",addLemon],["m2_sari",addSari],["m2_skin30",t=>t.split("\n").map(l=>/^\s*구이류\s*\|\s*두꺼비 껍데기\s*\|/.test(l)?l.replace(/\|\s*25(\.00?)?\s*\|/,"| 30 |"):l).join("\n")]];
     let migStarted=false;
     const runMenuMigs=()=>{ if(migStarted)return; migStarted=true;
       db.ref("pos/migrations").once("value").then(m=>{ const done=m.val()||{}; const todo=MENU_MIGS.filter(([k])=>!done[k]); if(!todo.length)return;
