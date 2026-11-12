@@ -42,7 +42,7 @@ header.top h1 small{font-weight:500;color:var(--muted);font-size:13px}
 .clock{color:var(--muted)}
 .sync{font-size:13px;font-weight:700}
 .sync.on{color:var(--sent)} .sync.off{color:var(--danger)}
-.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:10px;font-weight:700;z-index:40;max-width:calc(100% - 32px)}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));font-size:17px;box-shadow:0 6px 20px rgba(0,0,0,.25);transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:10px;font-weight:700;z-index:40;max-width:calc(100% - 32px)}
 .toast.bad{background:var(--danger);color:#fff}
 
 /* floor */
@@ -139,6 +139,7 @@ header.top h1 small{font-weight:500;color:var(--muted);font-size:13px}
 @media (max-width:700px),(max-height:560px){
   #order{height:auto;grid-template-rows:auto}
   #check{min-height:auto}
+  @media (orientation:landscape){ #check{position:sticky;top:0;align-self:start;max-height:100dvh;overflow-y:auto} #lines{flex:1 1 auto;overflow-y:auto} }
   #lines{flex:none;overflow:visible;min-height:0}
   #menuSide{min-height:0}
   #menuSide #items{flex:none;max-height:none;overflow:visible}
@@ -631,6 +632,14 @@ function addItem(m,v){
   const t=S.tables[cur]; const auto=AUTO_SVC.includes(m.name); const ex=t.items.find(x=>x.id===m.id&&x.name===m.name&&(x.v||"")===v&&!x.note&&!!x.svc===auto);
   if(ex)ex.qty++; else t.items.push(Object.assign({id:m.id,name:m.name,en:m.en||"",zh:m.zh||"",price:m.price,qty:1,sent:0,note:""},v?{v}:{},auto?{svc:true}:{}));
   commitTable(cur); renderOrder();
+  const added=ex||t.items[t.items.length-1]; addedFeedback(added,t);
+}
+/* 주문 창이 화면에 안 보일 때(전화기·스크롤 내린 상태) 추가된 메뉴를 알려줌 */
+function addedFeedback(x,t){
+  const L=$("lines"); const r=L.getBoundingClientRect(); const vis=r.top<innerHeight*0.7&&r.bottom>innerHeight*0.3&&r.width>0;
+  if(vis) return;
+  const c=calc(t); const n=t.items.reduce((a,y)=>a+y.qty,0);
+  toast(`✓ ${dn(x)} ×${x.qty} 추가 · 총 ${n}개 · 합계 ${money(c.due)}`);
 }
 function pickSize(base,sibs){
   const SZ=/\((.+)\)\s*$/; 
