@@ -153,6 +153,8 @@ header.top h1 small{font-weight:500;color:var(--muted);font-size:13px}
 .hint{color:var(--muted);font-size:13px;line-height:1.5}
 table.rep{width:100%;border-collapse:collapse}
 table.rep td{padding:6px 4px;border-bottom:1px solid var(--line)}
+.rep tr.notip td{background:#fff3f1} .rep tr.notip td:first-child{border-left:4px solid #c0392b;border-radius:6px 0 0 6px} .rep tr.notip td:last-child{border-right:4px solid #c0392b;border-radius:0 6px 6px 0} .rep tr.notip td{border-top:2px solid #c0392b;border-bottom:2px solid #c0392b}
+.notipMsg{color:#c0392b;font-weight:700}
 table.rep td:last-child{text-align:right}
 table.rep td.q{text-align:right;width:56px;color:var(--muted)}
 table.rep tr.cat td{font-weight:700;background:var(--bg);padding-top:10px}
@@ -1191,7 +1193,8 @@ async function showReport(){
   const menuTable=groups.length?`<table class="rep num">${groups.map(g=>`<tr class="cat"><td>${esc(g.c)}</td><td class="q">${g.q}개</td><td>${money(g.amt)}</td></tr>`+
      g.rs.map(r=>`<tr><td>${esc(r.n)}</td><td class="q">${r.q}</td><td>${money(r.amt)}</td></tr>`).join("")).join("")}</table>`:"<p class='hint'>이 기간에 판매된 메뉴가 없습니다.</p>";
   const multiDay=RP.mode!=="day";
-  const txTable=list.length?`<table class="rep num">${list.slice().reverse().map(x=>`<tr><td>#${x.no} ${label(x.table)} · ${multiDay?new Date(x.time).toLocaleDateString("ko-KR",{month:"numeric",day:"numeric"})+" ":""}${timeStr(x.time)} · ${x.method}
+  const noTip=x=>x.method==="카드"&&!cardTipOf(x)&&!cashTipOf(x); const nNoTip=list.filter(noTip).length;
+  const txTable=list.length?`${nNoTip?`<p class="hint notipMsg">🔴 팁이 입력되지 않은 카드 결제 ${nNoTip}건 — 빨간 테두리를 확인해 주세요. 팁이 정말 없으면 그대로 두셔도 됩니다.</p>`:""}<table class="rep num">${list.slice().reverse().map(x=>`<tr class="${noTip(x)?"notip":""}"><td>#${x.no} ${label(x.table)} · ${multiDay?new Date(x.time).toLocaleDateString("ko-KR",{month:"numeric",day:"numeric"})+" ":""}${timeStr(x.time)} · ${x.method}
       <div class="sub">${(x.items||[]).map(i=>esc(i.n)+" ×"+i.q).join(", ")}</div></td><td>${money(x.total)}<div class="sub">카드팁 ${money(cardTipOf(x))} · 현금팁 ${money(cashTipOf(x))} <button class="ghost tipEd" data-tip="${esc(String(x._k))}">결제·팁 수정</button></div></td></tr>`).join("")}</table>`:"<p class='hint'>결제된 건이 없습니다.</p>";
   modal(`<h3>매출 보기</h3>
    <div class="seg">${[["day","하루"],["week","주"],["month","월"]].map(([m,l])=>`<button data-m="${m}" class="${RP.mode===m?"on":""}">${l}</button>`).join("")}
