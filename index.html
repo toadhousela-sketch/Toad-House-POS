@@ -568,7 +568,7 @@ function renderTableTabs(){
   tableIds().forEach(id=>{ const t=S.tables[id]; const busy=t&&t.items.length; const b=document.createElement("button");
     b.className="ttab"+(id===cur?" on":"")+(busy?" busy":""); b.textContent=id.startsWith("TO")?"투고 "+id.slice(2):id.slice(1);
     b.onclick=()=>switchTable(id); c.appendChild(b); });
-  const on=c.querySelector(".on"); if(on&&on.scrollIntoView)on.scrollIntoView({inline:"nearest",block:"nearest"});
+  const on=c.querySelector(".on"); if(on){ const l=on.offsetLeft-c.offsetLeft, r=l+on.offsetWidth; if(l<c.scrollLeft)c.scrollLeft=l-8; else if(r>c.scrollLeft+c.clientWidth)c.scrollLeft=r-c.clientWidth+8; }
 }
 function switchTable(id){
   if(id===cur)return;
@@ -584,6 +584,7 @@ function renderOrder(){
   const m=menu(); const cats=[...new Set(m.map(x=>x.cat))];
   const ALL="__all__"; curCat=ALL; /* 탭 없이 전체 메뉴만 표시 */
   renderTableTabs();
+  const mkey=S.menuText+"\u0001"+(S.settings.variants||""); if($("items").dataset.key!==mkey){ /* 메뉴가 바뀔 때만 다시 그림 — 누를 때 스크롤이 위로 튀지 않게 */
   $("items").innerHTML=""; let lastCat=null; const SZ=/^(.+?)\s*\((Small|Medium|Large|소|중|대|1인|2인)\)$/i; const shown={};
   m.filter(x=>curCat===ALL||x.cat===curCat).forEach(x=>{
     if(curCat===ALL&&x.cat!==lastCat){lastCat=x.cat;const h=document.createElement("div");h.className="icat";h.textContent=x.cat+(CAT_EN[x.cat]?" · "+CAT_EN[x.cat]:"");$("items").appendChild(h);}
@@ -594,6 +595,7 @@ function renderOrder(){
       b.innerHTML=`<b>${esc(base)}</b>${en?`<em class="en">${esc(en)}</em>`:""}<span class="num">${money(lo)}${hi>lo?" – "+money(hi):""}</span><em class="en">사이즈 선택 ›</em>`;
       b.onclick=()=>pickSize(base,sibs); $("items").appendChild(b); return; }
     b.innerHTML=`<b>${esc(x.name)}</b>${x.en?`<em class="en">${esc(x.en)}</em>`:""}<span class="num">${money(x.price)}</span>`;b.onclick=()=>addItem(x);$("items").appendChild(b)});
+  $("items").dataset.key=mkey; }
   const t=S.tables[cur]; t.items.forEach(x=>{if(!x.en){const f=m.find(y=>y.name===x.name);if(f)x.en=f.en}}); $("ttl").textContent=label(cur); renderCust(t); $("opened").textContent=timeStr(t.opened)+" 시작";
   const L=$("lines"); L.innerHTML="";
   if(!t.items.length)L.innerHTML='<div class="empty">왼쪽 메뉴를 눌러 주문을 추가하세요.</div>';
