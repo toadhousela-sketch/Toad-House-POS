@@ -814,10 +814,25 @@ function toast(msg,bad){ let el=$("toast"); if(!el){el=document.createElement("d
 async function sendPrint(doc,html,kind,id){
   if(!useCloudPrint()){ doPrint(html); return; }
   let png; try{ png=await docToPNG(doc); }catch(e){ doPrint(html); return; }
-  db.ref("pos/printQueue").push({png,kind,table:id,created:Date.now()})
+  pushJob({png,kind,table:id,created:Date.now()},0)
     .then(()=>{ if(printerOnline())toast(kind==="kitchen"?"주방 프린터로 보냈습니다":kind==="list"?"주문 목록을 프린터로 보냈습니다":"영수증을 프린터로 보냈습니다");
       else toast("프린터가 꺼져 있는 것 같습니다. 켜지면 자동으로 출력됩니다.",true); })
     .catch(()=>{ toast("프린터로 보내지 못했습니다. 인쇄 창으로 출력합니다.",true); doPrint(html); });
+}
+/* 프린터가 다운로드에 실패하면(520 등) 서버가 작업을 지우므로, 이 기기에서 보낸 작업은 자동으로 다시 보냄 (최대 3번) */
+const MYJOBS={};
+function pushJob(job,tries){
+  const r=db.ref("pos/printQueue").push(job); const key=r.key;
+  MYJOBS[key]={job,tries};
+  r.on("value",s=>{ if(s.exists())return; r.off();
+    const j=MYJOBS[key]; delete MYJOBS[key]; if(!j)return;
+    setTimeout(()=>{ const res=String(PRN.lastResult||""), fresh=Date.now()-(PRN.lastPrinted||0)<20000;
+      if(fresh&&res&&!/^2/.test(res)){
+        if(j.tries<3){ toast("프린터가 받지 못해 다시 보냅니다 ("+(j.tries+1)+"/3)",true); setTimeout(()=>pushJob(Object.assign({},j.job,{created:Date.now()}),j.tries+1),1500); }
+        else toast("프린터 출력 실패 ("+res+"). 프린터를 껐다 켠 후 다시 눌러 주세요.",true);
+      } },1500);
+  });
+  return r.then?r.then(()=>r):Promise.resolve(r);
 }
 let printerSeen=0, PRN={};
 function prnInfo(){ const t=v=>v?new Date(v).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit",second:"2-digit"}):"없음";
