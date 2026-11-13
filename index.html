@@ -123,7 +123,31 @@ header.top h1 small{font-weight:500;color:var(--muted);font-size:13px}
   .ln .ctl button[data-a=m],.ln .ctl button[data-a=p]{min-width:58px;min-height:52px;font-size:26px;font-weight:700;padding:4px 8px}
   .ln .pr{grid-column:3;grid-row:1;font-size:16px}
   .ln .note{grid-row:2;font-size:12px}
-  .stL{display:block;margin-top:1px;white-space:nowrap} .stL .pill{font-size:10px;padding:0 6px;margin-right:3px} .stL .pill[data-a=k]{font-size:12px;padding:3px 10px;display:inline-block;margin-top:2px} .ln .pr s.was{display:none}
+  .stL{display:block;margin-top:1px;white-space:nowrap}
+  #check.dense .ln{padding:3px 10px;gap:0 6px}
+  #check.dense .ln .nm{font-size:15px;line-height:1.15}
+  #check.dense .ln .ctl button{min-height:34px;padding:4px 8px;font-size:14px}
+  #check.dense .ln .ctl button[data-a=m],#check.dense .ln .ctl button[data-a=p]{min-height:38px;min-width:48px;font-size:22px;padding:2px 6px}
+  #check.dense .ln .vr{font-size:13px;padding:1px 7px;margin-top:1px}
+  #check.dense .stL .pill{font-size:10px;padding:0 5px}
+  #check.denser .ln{padding:1px 10px}
+  #check.denser .ln .nm{font-size:14px}
+  #check.denser .ln .nm .stL{display:inline-block;margin-left:6px;vertical-align:middle}
+  #check.denser .ln .ctl button{min-height:30px;padding:2px 7px;font-size:13px}
+  #check.denser .ln .ctl button[data-a=m],#check.denser .ln .ctl button[data-a=p]{min-height:32px;min-width:42px;font-size:20px}
+  #check.denser .ln .pr{font-size:15px}
+  #check.densest .ln{padding:0 10px;gap:0 5px}
+  #check.densest .ln .nm{font-size:13px;line-height:1.1}
+  #check.densest .ln .ctl{gap:3px}
+  #check.densest .ln .ctl button{min-height:26px;min-width:34px;padding:1px 6px;font-size:12px}
+  #check.densest .ln .ctl button[data-a=m],#check.densest .ln .ctl button[data-a=p]{min-height:28px;min-width:38px;font-size:18px;padding:0 5px}
+  #check.densest .ln .pr{font-size:14px}
+  #check.densest .ln .note{font-size:11px}
+  #check.densest .tot{padding:2px 12px;gap:0 8px;font-size:13px} #check.densest .tot .big{font-size:18px}
+  #check.densest .acts{grid-template-columns:1fr 1fr 1fr;gap:5px;padding:0 10px 6px}
+  #check.densest .acts .wide{padding:8px 4px;font-size:14px} #check.densest .acts #btnMove,#check.densest .acts #btnClear{padding:8px 4px;font-size:13px}
+  #check.densest .hd{padding:4px 12px} #check.densest .hd h2{font-size:18px}
+  .stL .pill{font-size:10px;padding:0 6px;margin-right:3px} .stL .pill[data-a=k]{font-size:12px;padding:3px 10px;display:inline-block;margin-top:2px} .ln .pr s.was{display:none}
   .tot{padding:4px 12px;gap:1px 8px;font-size:14px}
   .tot .big{font-size:20px}
   .tot{grid-template-columns:auto 1fr auto auto;align-items:center;column-gap:8px}
@@ -628,6 +652,14 @@ function renderOrder(){
   const c=calc(t); $("sub").textContent=money(c.items); $("disc").textContent=c.disc?"−"+money(c.disc):""; $("tax").textContent=money(c.tax); $("taxLbl").textContent=`(${S.settings.tax}%)`; $("grat").textContent=c.grat?"+"+money(c.grat):""; $("total").textContent=money(c.due);
   { const hasNew=t.items.some(needK), hasK=t.items.some(x=>!isBar(x)&&x.qty>0);
     $("btnKitchen").disabled=!hasNew&&!hasK; $("btnKitchen").textContent=hasNew?"주방으로 보내기 (출력)":(hasK?"주방 주문서 다시 출력":"주방으로 보내기 (출력)"); $("btnKitchen").classList.toggle("reprint",!hasNew&&hasK); }
+  fitLines();
+}
+/* 주문이 많아 잘리면 줄 간격을 자동으로 줄여서 다 보이게 */
+function fitLines(){
+  const ck=$("check"), L=$("lines"); ck.classList.remove("dense","denser","densest");
+  if(getComputedStyle(L).overflowY==="visible") return; // 전화기(페이지 스크롤)에서는 불필요
+  const over=()=>L.scrollHeight>L.clientHeight+2;
+  if(over()){ ck.classList.add("dense"); if(over()){ ck.classList.add("denser"); if(over()){ ck.classList.add("densest"); } } }
 }
 function addItem(m,v){
   if(v===undefined){ const vs=variantsOf(m.name); if(vs){ pickVariant(m,vs); return; } v=""; }
