@@ -470,7 +470,7 @@ function startCloud(){
       const v=s.val()||{}; const keep=cur&&S.tables[cur]&&!S.tables[cur].items.length?S.tables[cur]:null;
       S.tables={}; Object.keys(v).forEach(k=>S.tables[k]=normTable(v[k]));
       if(keep&&!S.tables[cur])S.tables[cur]=keep;
-      refresh();
+      refresh(); ppReturn();
     });
   });
 }
@@ -814,10 +814,26 @@ async function png1bit(px,W,H){
   const all=new Uint8Array(parts.reduce((t,p)=>t+p.length,0)); let o=0; parts.forEach(p=>{all.set(p,o);o+=p.length});
   let bin=""; for(let i=0;i<all.length;i+=8192)bin+=String.fromCharCode.apply(null,all.subarray(i,i+8192)); return btoa(bin);
 }
-const useCloudPrint=()=>CLOUD&&db&&(S.settings.printMode||"cloud")==="cloud";
+/* 이 기기만: Star PassPRNT 앱으로 프린터에 바로 출력 (인터넷을 거치지 않음) */
+const PP_KEY="th_passprnt";
+const usePass=()=>{try{return localStorage.getItem(PP_KEY)==="1"}catch(e){return false}};
+const useCloudPrint=()=>!usePass()&&CLOUD&&db&&(S.settings.printMode||"cloud")==="cloud";
+function passPrint(png,kind,id){
+  const html='<!DOCTYPE html><html><body style="margin:0;padding:0"><img style="display:block;width:576px" src="data:image/png;base64,'+png+'"></body></html>';
+  const back=location.origin+location.pathname+"?pp="+encodeURIComponent(kind||"print")+(id?"&tb="+encodeURIComponent(id):"");
+  location.href="starpassprnt://v1/print/nopreview?size=576&cut=partial&back="+encodeURIComponent(back)+"&html="+encodeURIComponent(html);
+}
+/* PassPRNT 앱에서 돌아왔을 때: 결과 알림 + 보던 테이블 다시 열기 */
+let PP_BACK=null;
+try{ const q=new URLSearchParams(location.search); if(q.has("pp")){ PP_BACK={tb:q.get("tb"),code:q.get("passprnt_code"),msg:q.get("passprnt_message")};
+  history.replaceState(null,"",location.pathname); } }catch(e){}
+function ppReturn(){ if(!PP_BACK)return; const b=PP_BACK; PP_BACK=null;
+  if(b.tb&&S.tables[b.tb]&&S.tables[b.tb].items.length&&!cur) openTable(b.tb);
+  if(b.code==null||b.code==="0") toast("프린터로 출력했습니다"); else toast("출력하지 못했습니다 ("+(b.msg||b.code)+"). 프린터 전원과 Star PassPRNT 앱의 프린터 선택을 확인해 주세요.",true); }
 function toast(msg,bad){ let el=$("toast"); if(!el){el=document.createElement("div");el.id="toast";document.body.appendChild(el);}
   el.textContent=msg; el.className="toast"+(bad?" bad":""); el.hidden=false; clearTimeout(toast.t); toast.t=setTimeout(()=>el.hidden=true,2600); }
 async function sendPrint(doc,html,kind,id){
+  if(usePass()){ try{ passPrint(await docToPNG(doc),kind,id); }catch(e){ doPrint(html); } return; }
   if(!useCloudPrint()){ doPrint(html); return; }
   let png; try{ png=await docToPNG(doc); }catch(e){ doPrint(html); return; }
   pushJob({png,kind,table:id,created:Date.now()},0)
@@ -1214,6 +1230,7 @@ $("btnMenu").onclick=()=>{
    <label class="hint">테이블 수<input id="mTbl" value="${s.tables}"></label>
    <label class="hint">투고 칸 수<input id="mTogo" value="${s.togo}"></label></div>
   ${CLOUD?`<label class="hint">출력 방식<select id="mPm" style="width:100%;font:inherit;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)"><option value="cloud" ${(s.printMode||"cloud")==="cloud"?"selected":""}>주방 프린터로 자동 출력 (Star CloudPRNT)</option><option value="dialog" ${s.printMode==="dialog"?"selected":""}>인쇄 창 열기 (AirPrint)</option></select></label>`:""}
+  <label class="hint">이 기기의 출력 방식 (이 iPad·전화기에만 적용)<select id="mPp" style="width:100%;font:inherit;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)"><option value="0" ${usePass()?"":"selected"}>위의 매장 출력 방식대로</option><option value="1" ${usePass()?"selected":""}>Star PassPRNT 앱으로 바로 출력 (인터넷 불필요)</option></select></label>
   <label class="hint">주소<input id="mAddr" value="${esc(s.addr)}"></label>
   <label class="hint">전화<input id="mPhone" value="${esc(s.phone)}"></label>
   <label class="hint" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="mWm" style="width:auto" ${s.watermark!==false?"checked":""}> 손님 영수증 글씨 뒤에 흐린 엠블럼 넣기</label>
@@ -1221,7 +1238,7 @@ $("btnMenu").onclick=()=>{
   $("mNo").onclick=closeModal; if(CLOUD)$("mOut").onclick=()=>{closeModal();firebase.auth().signOut()};
   $("mYes").onclick=()=>{S.menuText=$("mMenu").value;
     s.tax=parseFloat($("mTax").value)||0; s.tables=Math.max(1,parseInt($("mTbl").value)||12); s.togo=Math.max(0,parseInt($("mTogo").value)||0);
-    s.addr=$("mAddr").value; s.phone=$("mPhone").value; s.variants=$("mVar").value; if($("mPm"))s.printMode=$("mPm").value; s.watermark=$("mWm").checked; commitSettings(); printerStatus(); closeModal(); cur?renderOrder():renderFloor()};
+    s.addr=$("mAddr").value; s.phone=$("mPhone").value; s.variants=$("mVar").value; if($("mPm"))s.printMode=$("mPm").value; try{ if($("mPp").value==="1")localStorage.setItem(PP_KEY,"1"); else localStorage.removeItem(PP_KEY); }catch(e){} s.watermark=$("mWm").checked; commitSettings(); printerStatus(); closeModal(); cur?renderOrder():renderFloor()};
 };
 let RP={mode:"day",anchor:null};
 function periodRange(mode,anchor){
