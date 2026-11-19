@@ -429,6 +429,24 @@ async function deleteSale(k,x){
     await db.ref("pos/salesDeleted/"+k).set(clean(y)); return db.ref("pos/sales/"+k).remove(); }
   if(S.sales[k]){ S.sales.splice(k,1); saveLocal(); }
 }
+/* 결제 취소: 실수로 결제 완료한 매출을 지우고 그 테이블 주문을 되살림 */
+function tableFromSale(x){
+  if(x.tbl&&x.tbl.items&&x.tbl.items.length){ const t=JSON.parse(JSON.stringify(x.tbl)); t.items.forEach(i=>{i.sent=i.qty}); return normTable(t); }
+  const M=menu(); const items=(x.items||[]).map((it,i)=>{ let n=String(it.n||""), svc=false, v="";
+    if(n.endsWith(SVC_LBL)){ svc=true; n=n.slice(0,-SVC_LBL.length); }
+    let m=M.find(y=>y.name===n);
+    if(!m){ const mm=n.match(/^(.*) \(([^()]*)\)$/); if(mm){ const m2=M.find(y=>y.name===mm[1]); if(m2){ m=m2; v=mm[2]; } } }
+    return Object.assign({id:m?m.id:"r"+i,name:m?m.name:n,en:m?m.en||"":"",zh:m?m.zh||"":"",price:svc?(m?m.price:0):(+it.p||0),qty:+it.q||1,sent:+it.q||1,note:""},v?{v}:{},svc?{svc:true}:{}); });
+  const t={items,opened:x.time||Date.now(),no:x.no}; if(x.discPct)t.disc=x.discPct; return normTable(t);
+}
+async function unpaySale(k,x){
+  const id=x.table; const ex=S.tables[id];
+  if(ex&&ex.items&&ex.items.length) throw new Error("busy");
+  const t=tableFromSale(x); if(!t.items.length) throw new Error("empty");
+  S.tables[id]=t; commitTable(id);
+  await deleteSale(k,Object.assign({},x,{unpaid:true}));
+  return id;
+}
 async function salesSince(ts){
   if(CLOUD&&db){
     const snap=await db.ref("pos/sales").orderByChild("time").startAt(ts).once("value");
@@ -933,7 +951,7 @@ $("btnPaid").onclick=()=>{
     const tip=m==="카드"?t1:0, cashTip=Math.round((t2+(m==="카드"?0:t1))*100)/100; closeModal();
     let no=S.tables[id]&&S.tables[id].no; if(!no)no=await nextReceiptNo();
     const tt=S.tables[id]; if(!tt||!tt.items.length)return; const c=calc(tt);
-    addSale({no,table:id,time:Date.now(),method:m,sub:c.sub,tax:c.tax,total:c.total,svc:c.svc,disc:c.disc,discPct:c.discPct,tip,cashTip,cust:custStr(tt),taxable:Math.round((c.items+c.svc)*100)/100,items:tt.items.map(x=>{const f=menu().find(y=>y.name===x.name);return {n:dn(x)+(x.svc?SVC_LBL:""),q:x.qty,p:x.svc?0:x.price,c:f?f.cat:"기타"}})});
+    addSale({no,table:id,time:Date.now(),method:m,sub:c.sub,tax:c.tax,total:c.total,svc:c.svc,disc:c.disc,discPct:c.discPct,tip,cashTip,cust:custStr(tt),taxable:Math.round((c.items+c.svc)*100)/100,items:tt.items.map(x=>{const f=menu().find(y=>y.name===x.name);return {n:dn(x)+(x.svc?SVC_LBL:""),q:x.qty,p:x.svc?0:x.price,c:f?f.cat:"기타"}}),tbl:JSON.parse(JSON.stringify(Object.assign({},tt,{no})))});
     const w=Date.now(); const html=receiptHtml(tt,id,no,w,true); const rdoc=receiptDoc(tt,id,no,w,true); S.tables[id]={items:[]}; commitTable(id); if(cur===id)back(); if(pr)sendPrint(rdoc,html,"receipt",id); };
   $("mCard").onclick=()=>fin("카드"); $("mCash").onclick=()=>fin("현금");
 };
@@ -1314,7 +1332,16 @@ async function showReport(){
       <label class="hint">카드 팁<input id="tpV" type="number" inputmode="decimal" step="0.01" min="0" value="${cardTipOf(x).toFixed(2)}"></label>
       <label class="hint">현금 팁<input id="tpC" type="number" inputmode="decimal" step="0.01" min="0" value="${cashTipOf(x).toFixed(2)}"></label>
       <label class="hint">매출 날짜 (다른 날 매출로 옮길 때만 바꾸세요)<input id="tpD" type="date" value="${ymd(x.time)}"></label>
-      <div class="row"><button class="danger" id="mDel" style="margin-right:auto">이 매출 삭제</button><button id="mNo">취소</button><button class="primary" id="mYes">저장</button></div>`);
+      <div class="row"><button class="danger" id="mDel">이 매출 삭제</button><button id="mUnpay" style="margin-right:auto">결제 취소 (미결제로)</button><button id="mNo">취소</button><button class="primary" id="mYes">저장</button></div>`);
+    $("mUnpay").onclick=()=>{
+      modal(`<h3>#${x.no} ${label(x.table)} 결제를 취소할까요?</h3><p class="hint">${new Date(x.time).toLocaleString("ko-KR")} · 결제 ${money(x.total)} · ${esc(x.method||"")}</p>
+        <p>이 매출을 지우고 ${label(x.table)}에 주문을 다시 살립니다. 주방에는 다시 보내지 않습니다. 손님이 계산할 때 결제 완료를 다시 눌러 주세요.</p>
+        <div class="row"><button id="mNo">아니요</button><button class="primary" id="mYes">결제 취소</button></div>`);
+      $("mNo").onclick=showReport;
+      $("mYes").onclick=async()=>{ $("mYes").disabled=true;
+        try{ const id=await unpaySale(x._k,x); closeModal(); toast(`${label(id)} 주문을 미결제로 되돌렸습니다`); if(cur&&cur!==id)back(); openTable(id); }
+        catch(e){ toast(e.message==="busy"?`${label(x.table)}에 이미 다른 주문이 있습니다. 그 주문을 먼저 다른 테이블로 옮긴 뒤 다시 눌러 주세요.`:"되돌리지 못했습니다. 인터넷 연결을 확인해 주세요.",true); showReport(); } };
+    };
     $("mDel").onclick=()=>{
       modal(`<h3>#${x.no} ${label(x.table)} 매출을 삭제할까요?</h3><p class="hint">${new Date(x.time).toLocaleString("ko-KR")} · 결제 ${money(x.total)} · ${esc(x.method||"")}</p>
         <p>삭제하면 매출 합계·팁·세금·메뉴별 판매에서 모두 빠집니다. 잘못 들어간 매출일 때만 삭제하세요.</p>
